@@ -31,23 +31,27 @@ OAK-D Lite 対応 ROS2 Humble depthai-ros example の改造版です。
 
 #### 3. 実行  
 
-    1) publish img_rect and depth for ratbmap_ros stereo rect  
-    $ ros2 launch depthai_ros_my oak-d_stereo.launch.py    
-    rem. build and exec src/rgb_stereo_node_my.cpp  
+i. publish img_rect and depth for ratbmap_ros stereo rect  
 
-    2) publish rgb and depth for rtambap depth   
+    $ ros2 launch depthai_ros_my oak-d_stereo.launch.py    
+
+rem. build and exec src/stereo_publisher_my.cpp  
+
+ii. publish rgb and depth for rtambap_ros depth
+
     $ ros2 launch depthai_ros_my oak-d_rgb_stereo_node.launch.py  
-    rem. build and exec src/rgb_stereo_node_my.cpp  
+
+rem. build and exec src/rgb_stereo_node_my.cpp  
    
-#### 4. my library  
+#### 4. My library  
 
     src/camera_com.cpp and include/depthai_ros_my/camera_com.hpp    
 
 It is very simple and easy than depthai-ros/depthai_bridge/src/ImageConverter.cpp, I think. 
   
-example  
+example code  
 
-    stereo_publisher_my.cpp  
+    src/stereo_publisher_my.cpp  
 
 How to make camera info.  
 ````
@@ -58,7 +62,7 @@ How to make camera info.
 
 ````
 
-How to get images from camea and publish them.  
+How to get images from camera and publish them.  
 ````
     // if文の{}の中に置くと、うまく動きません。必ず直において下さい、
     camera_com::Go_Publish go_pub_left,go_pub_right;
@@ -69,4 +73,5 @@ How to get images from camea and publish them.
     go_pub_right.init(rightQueue);
     go_pub_right.openPub(node, tfPrefix + "_right_camera_optical_frame", "right/image_rect", qos, rightCameraInfo);
 
+    rclcpp::spin(node);
 ````
