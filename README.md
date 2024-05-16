@@ -7,6 +7,9 @@ OAK-D Lite 対応 ROS2 Humble depthai-ros example の改造版です。
 
 オリジナル: [depthai-ros / depthai_examples](https://github.com/luxonis/depthai-ros/tree/humble/depthai_examples)    
 
+    stereo_publisher.cpp  
+    rgb_stereo_node.cpp  
+
 #### 1. down load depthai-ros and build.  
 参照: [Install from source](https://docs-beta.luxonis.com/software/ros/depthai-ros/build/)  
 
