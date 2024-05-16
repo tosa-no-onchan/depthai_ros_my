@@ -1,6 +1,9 @@
 ### depthai_ros_my  
 OAK-D Lite 対応 ROS2 Humble depthai-ros example の改造版です。  
 
+    stereo_publisher_my.cpp  
+    rgb_stereo_node_my.cpp  
+
   ubuntu 22.04  
   PC and OrangePi 5 (Armbian and ubuntu 22.04)  
   ros2:humble  
