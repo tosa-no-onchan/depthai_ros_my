@@ -42,4 +42,31 @@ OAK-D Lite 対応 ROS2 Humble depthai-ros example の改造版です。
 #### 4. my library  
 
     src/camera_com.cpp and include/depthai_ros_my/camera_com.hpp    
-    It is very simple and easy than depthai-ros/depthai_bridge/src/ImageConverter.cpp, I think.
+
+It is very simple and easy than depthai-ros/depthai_bridge/src/ImageConverter.cpp, I think. 
+  
+example  
+
+    stereo_publisher_my.cpp  
+
+How to make camera info.  
+````
+    camera_com::CameraTools camera_tools;
+    camera_tools._reverseStereoSocketOrder = true;   // rtabmap_ros の rect_img のときは必要。
+    auto leftCameraInfo = camera_tools.calibrationToCameraInfo_my(calibrationHandler, dai::CameraBoardSocket::CAM_B, monoWidth, monoHeight);
+    auto rightCameraInfo = camera_tools.calibrationToCameraInfo_my(calibrationHandler, dai::CameraBoardSocket::CAM_C, monoWidth, monoHeight);
+
+````
+
+How to get images from camea and publish them.  
+````
+    // if文の{}の中に置くと、うまく動きません。必ず直において下さい、
+    camera_com::Go_Publish go_pub_left,go_pub_right;
+
+    go_pub_left.init(leftQueue);
+    //go_pub_left.set_debug();
+    go_pub_left.openPub(node, tfPrefix + "_left_camera_optical_frame", "left/image_rect", qos, leftCameraInfo);
+    go_pub_right.init(rightQueue);
+    go_pub_right.openPub(node, tfPrefix + "_right_camera_optical_frame", "right/image_rect", qos, rightCameraInfo);
+
+````
