@@ -65,7 +65,7 @@ How to make camera info.
 
 ````
 
-How to get images from camera and publish them.  
+How to get images from oak-d Lite depthai camera and publish them.  
 ````
     // if文の{}の中に置くと、うまく動きません。必ず直において下さい、
     camera_com::Go_Publish go_pub_left,go_pub_right;
