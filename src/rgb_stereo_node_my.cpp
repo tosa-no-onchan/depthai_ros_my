@@ -40,6 +40,8 @@
 
 using namespace std::chrono_literals;
 
+#define USE_CAMER_CONTROL
+
 std::tuple<dai::Pipeline, int, int> createPipeline(bool lrcheck,
                                                    bool extended,
                                                    bool subpixel,
@@ -54,10 +56,12 @@ std::tuple<dai::Pipeline, int, int> createPipeline(bool lrcheck,
                                                    int rate    // add by nishi 2924.5.5
                                                    ) {
     dai::Pipeline pipeline;
+
+
     auto monoLeft = pipeline.create<dai::node::MonoCamera>();
     auto monoRight = pipeline.create<dai::node::MonoCamera>();
-
     auto stereo = pipeline.create<dai::node::StereoDepth>();
+
     auto xoutDepth = pipeline.create<dai::node::XLinkOut>();
 
     xoutDepth->setStreamName("depth");
@@ -109,8 +113,21 @@ std::tuple<dai::Pipeline, int, int> createPipeline(bool lrcheck,
     monoRight->out.link(stereo->right);
     stereo->depth.link(xoutDepth->input);
 
+    //-------
     // Color camers steream setup -------->
+    //-------
     auto colorCam = pipeline.create<dai::node::ColorCamera>();
+
+    #if defined(USE_CAMER_CONTROL)
+        // add by nishi 2024.5.17
+        auto controlIn = pipeline.create<dai::node::XLinkIn>();
+        controlIn->setStreamName("control");
+
+        // Linking
+        // add by nishi 2024.5.17
+        controlIn->out.link(colorCam->inputControl);
+    #endif
+
 
     dai::ColorCameraProperties::SensorResolution colorResolution;
     if(cResolution == "1080p") {
@@ -176,7 +193,21 @@ int main(int argc, char** argv) {
 
     int rate, queue_size;   // add by  nishi 2024.5..6
     int qos;
-    bool trace;
+    bool trace,rgb2grey;
+
+    bool auto_exp;
+    int expTime = 20000;
+    int expMin = 1;
+    int expMax = 33000;
+
+    int sensIso = 800;
+    int sensMin = 100;
+    int sensMax = 1600;
+
+    int wbManual = 4000;
+    int wbMin = 1000;
+    int wbMax = 12000;
+
 
     // if文の{}の中に置くと、うまく動きません。必ず直において下さい、
     camera_com::Go_Publish go_depthQueue_pub,go_previewQueue_pub, go_videoQueue_pub;
@@ -203,6 +234,12 @@ int main(int argc, char** argv) {
     node->declare_parameter("rate", 30);    // add by nishi 2024.5.6
     node->declare_parameter("queue_size", 30);    // add by nishi 2024.5.6
     node->declare_parameter("trace", false);
+    node->declare_parameter("rgb2grey", false);
+
+
+    node->declare_parameter("auto_exp", false);
+    node->declare_parameter("sensIso", 1000);
+    node->declare_parameter("expTime", 27500);
 
     node->get_parameter("qos", qos);      // add by nishi 2024.5.5
     node->get_parameter("tf_prefix", tfPrefix);
@@ -224,6 +261,11 @@ int main(int argc, char** argv) {
     node->get_parameter("rate", rate);      // add by nishi 2024.5.5
     node->get_parameter("queue_size", queue_size);      // add by nishi 2024.5.5
     node->get_parameter("trace", trace);
+    node->get_parameter("rgb2grey", rgb2grey);
+
+    node->get_parameter("auto_exp", auto_exp);
+    node->get_parameter("sensIso", sensIso);
+    node->get_parameter("expTime", expTime);
 
     std::cout << " queue_size:"<< queue_size << std::endl;
 
@@ -263,6 +305,10 @@ int main(int argc, char** argv) {
     auto depthQueue = device.getOutputQueue("depth", queue_size, false);   // changed by nishi 2024.5.6
     auto previewQueue = device.getOutputQueue("preview", queue_size, false);    // changed by nishi 2024.5.6
 
+    #if defined(USE_CAMER_CONTROL)
+        // add by nishi 2024.5.17
+        auto controlQueue = device.getInputQueue("control");
+    #endif
     auto calibrationHandler = device.readCalibration();
 
     auto boardName = calibrationHandler.getEepromData().boardName;
@@ -292,6 +338,32 @@ int main(int argc, char** argv) {
     if(boardName.find("PRO") != std::string::npos) {
         timer = node->create_wall_timer(500ms, cb);
     }
+
+    #if defined(USE_CAMER_CONTROL)
+        //------------------
+        // set up camera
+        // /home/nishi/local/git-download/depthai-core/examples/ColorCamera/rgb_camera_control.cpp
+        // iso 1000  ->  sensIso
+        // exposure, time: 27500  -> expTime
+        //------------------
+        dai::CameraControl ctrl;
+        // AutoExposure
+        if(auto_exp){
+            std::cout << " auto_exp: true"<< std::endl;
+            ctrl.setAutoExposureEnable();
+            controlQueue->send(ctrl);
+        }
+        else{
+            std::cout << " expTime: "<< expTime <<" sensIso: "<< sensIso << std::endl;
+            ctrl.setManualExposure(expTime, sensIso);
+            controlQueue->send(ctrl);
+        }
+
+        std::cout << " Auto white-balance enable" << std::endl;
+        ctrl.setAutoWhiteBalanceMode(dai::CameraControl::AutoWhiteBalanceMode::AUTO);
+        controlQueue->send(ctrl);
+
+    #endif
 
     //------------------
     // set up camera info
@@ -334,6 +406,7 @@ int main(int argc, char** argv) {
     if(useVideo) {
         go_videoQueue_pub.init(videoQueue);
         //go_videoQueue_pub.set_debug();
+        go_videoQueue_pub.rgb2grey_=rgb2grey;
         go_videoQueue_pub.openPub(node, tfPrefix + "_rgb_camera_optical_frame", "color/video/image", qos, videoCameraInfo,trace);
     }
     rclcpp::spin(node);

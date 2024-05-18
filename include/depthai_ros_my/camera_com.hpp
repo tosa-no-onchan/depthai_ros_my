@@ -130,6 +130,8 @@ public:
 
     std::shared_ptr<rclcpp::Node> node_;
 
+    bool rgb2grey_=false;
+
     Go_Publish(){}
 
     //void init(std::shared_ptr<dai::DataOutputQueue> output_queue, bool is_debug=false){
@@ -162,6 +164,7 @@ public:
     rclcpp::Time start_t_;
     double sec_dur_ = 3.0;
     int cnt_=0;
+
 
     std::string frame_name_;
     std::string topic_name_;

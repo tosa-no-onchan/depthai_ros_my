@@ -57,6 +57,10 @@ def generate_launch_description():
     rate     = LaunchConfiguration('rate',       default = 15)          # original 30
     queue_size = LaunchConfiguration('queue_size',       default = 2)   # original 30
     trace        = LaunchConfiguration('trace', default = True)
+    rgb2grey        = LaunchConfiguration('rgb2grey', default = False)
+    auto_exp       = LaunchConfiguration('auto_exp', default = False)
+    sensIso        = LaunchConfiguration('sensIso', default = 1000)
+    expTime        = LaunchConfiguration('expTime', default = 27500)
 
     oak_parameters={
         'tf_prefix': tf_prefix,
@@ -89,6 +93,10 @@ def generate_launch_description():
         'rate': rate,
         'queue_size': queue_size,
         'trace': trace,
+        'rgb2grey': rgb2grey,
+        'auto_exp': auto_exp,
+        'sensIso': sensIso,
+        'expTime': expTime,
     }
 
     remappings=[

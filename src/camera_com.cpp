@@ -327,6 +327,8 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ImgFrame> &inData){
             }
         #endif
 
+        auto encoding_code = sensor_msgs::image_encodings::BGR8;
+
         switch(inData->getType()) {
             case dai::RawImgFrame::Type::RGB888p: {
                 if(debug_f_)
@@ -356,10 +358,25 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ImgFrame> &inData){
                 cv::cvtColor(mat, output, cv::ColorConversionCodes::COLOR_YUV2BGR_IYUV);
                 break;
 
+            // center rgb Camera
             case dai::RawImgFrame::Type::NV12:
                 if(debug_f_)
                     std::cout << " dai::RawImgFrame::Type::NV12" << std::endl;
-                cv::cvtColor(mat, output, cv::ColorConversionCodes::COLOR_YUV2BGR_NV12);
+                // add by nishi 2024.5.17
+                if(rgb2grey_){
+                    // bgr to grey
+                    // COLOR_YUV2GRAY_NV12
+                    cv::cvtColor(mat, output, cv::ColorConversionCodes::COLOR_YUV2GRAY_NV12);
+                    encoding_code = sensor_msgs::image_encodings::MONO8;
+                }
+                else{
+                    // original  to BGR8
+                    //cv::cvtColor(mat, output, cv::ColorConversionCodes::COLOR_YUV2BGR_NV12);
+                    // changed by nishi 2024.5.18
+                    // to RGB8
+                    cv::cvtColor(mat, output, cv::ColorConversionCodes::COLOR_YUV2RGB_NV12);
+                    encoding_code = sensor_msgs::image_encodings::RGB8;
+                }
                 break;
 
             default:
@@ -374,7 +391,8 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ImgFrame> &inData){
         #if defined(USE_ORG_1)
             // http://docs.ros.org/en/lunar/api/cv_bridge/html/c++/classcv__bridge_1_1CvImage.html
             //cv_bridge::CvImage(header, sensor_msgs::image_encodings::BGR8, output).toImageMsg(outImageMsg);
-            image = cv_bridge::CvImage(image->header, sensor_msgs::image_encodings::BGR8, output).toImageMsg();
+            //image = cv_bridge::CvImage(image->header, sensor_msgs::image_encodings::BGR8, output).toImageMsg();
+            image = cv_bridge::CvImage(image->header, encoding_code, output).toImageMsg();
         #else
             image->height=inData->getHeight();
             image->width= inData->getWidth();
