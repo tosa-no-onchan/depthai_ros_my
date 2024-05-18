@@ -44,6 +44,10 @@ def generate_launch_description():
 
     rate     = LaunchConfiguration('rate',       default = 15)          # original 30
     queue_size = LaunchConfiguration('queue_size',       default = 2)   # original 30
+    trace        = LaunchConfiguration('trace', default = True)
+    auto_exp       = LaunchConfiguration('auto_exp', default = False)
+    sensIso        = LaunchConfiguration('sensIso', default = 800)
+    expTime        = LaunchConfiguration('expTime', default = 20000)
 
     oak_parameters={
         'tf_prefix': tf_prefix,
@@ -56,6 +60,10 @@ def generate_launch_description():
         'monoResolution': monoResolution,
         'rate': rate,
         'queue_size': queue_size,
+        'trace': trace,
+        'auto_exp': auto_exp,
+        'sensIso': sensIso,
+        'expTime': expTime,
     }
 
     remappings=[

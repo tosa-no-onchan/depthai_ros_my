@@ -36,10 +36,16 @@
 
 #include "depthai_ros_my/camera_com.hpp"
 
+#define USE_CAMER_CONTROL
+
 std::tuple<dai::Pipeline, int, int> createPipeline(
     bool withDepth, bool lrcheck, bool extended, bool subpixel, int confidence, int LRchecktresh, std::string resolution,int rate) {
+
+    // Create pipeline
     dai::Pipeline pipeline;
     dai::node::MonoCamera::Properties::SensorResolution monoResolution;
+
+    // Define sources and outputs
     auto monoLeft = pipeline.create<dai::node::MonoCamera>();
     auto monoRight = pipeline.create<dai::node::MonoCamera>();
     auto xoutLeft = pipeline.create<dai::node::XLinkOut>();
@@ -47,13 +53,22 @@ std::tuple<dai::Pipeline, int, int> createPipeline(
     auto stereo = pipeline.create<dai::node::StereoDepth>();
     auto xoutDepth = pipeline.create<dai::node::XLinkOut>();
 
+    #if defined(USE_CAMER_CONTROL)
+        auto controlIn = pipeline.create<dai::node::XLinkIn>();
+        controlIn->setStreamName("control");
+        // Linking
+        controlIn->out.link(monoRight->inputControl);
+        controlIn->out.link(monoLeft->inputControl);
+    #endif
+
     // XLinkOut
     xoutLeft->setStreamName("left");
     xoutRight->setStreamName("right");
 
     if(withDepth) {
         xoutDepth->setStreamName("depth");
-    } else {
+    } 
+    else {
         xoutDepth->setStreamName("disparity");
     }
 
@@ -110,10 +125,8 @@ std::tuple<dai::Pipeline, int, int> createPipeline(
     else {
         stereo->disparity.link(xoutDepth->input);
     }
-
     return std::make_tuple(pipeline, width, height);
 }
-
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
@@ -124,7 +137,6 @@ int main(int argc, char** argv) {
     bool outputDepth=false;
     bool outputRectified=true;
 
-
     std::string tfPrefix, mode, monoResolution;
     bool lrcheck, extended, subpixel, enableDepth;
     int confidence, LRchecktresh;
@@ -134,6 +146,17 @@ int main(int argc, char** argv) {
 
     int rate, queue_size;   // add by  nishi 2024.5..6
     int qos;
+    bool trace;
+
+    bool auto_exp;
+    // Defaults and limits for manual focus/exposure controls
+    int expTime = 20000;
+    int expMin = 1;
+    int expMax = 33000;
+
+    int sensIso = 800;
+    int sensMin = 100;
+    int sensMax = 1600;
 
     node->declare_parameter("qos", 1);    // add by nishi 2024.5.6
     node->declare_parameter("tf_prefix", "oak");
@@ -147,6 +170,11 @@ int main(int argc, char** argv) {
 
     node->declare_parameter("rate", 30);    // add by nishi 2024.5.6
     node->declare_parameter("queue_size", 30);    // add by nishi 2024.5.6
+    node->declare_parameter("trace", false);
+
+    node->declare_parameter("auto_exp", false);
+    node->declare_parameter("expTime", 20000);    // add by nishi 2024.5.18
+    node->declare_parameter("sensIso", 800);    // add by nishi 2024.5.18
 
     node->get_parameter("qos", qos);      // add by nishi 2024.5.5
     node->get_parameter("tf_prefix", tfPrefix);
@@ -160,6 +188,11 @@ int main(int argc, char** argv) {
 
     node->get_parameter("rate", rate);      // add by nishi 2024.5.5
     node->get_parameter("queue_size", queue_size);      // add by nishi 2024.5.5
+    node->get_parameter("trace", trace);
+
+    node->get_parameter("auto_exp", auto_exp);
+    node->get_parameter("expTime", expTime);      // add by nishi 2024.5.18
+    node->get_parameter("sensIso", sensIso);      // add by nishi 2024.5.18
 
     std::cout << " queue_size:"<< queue_size << std::endl;
 
@@ -183,6 +216,30 @@ int main(int argc, char** argv) {
     std::string queue_name = enableDepth ? "depth": "disparity";
     auto stereoQueue = device.getOutputQueue(queue_name, queue_size, false);
 
+    #if defined(USE_CAMER_CONTROL)
+        //auto controlQueue = device.getInputQueue(controlIn->getStreamName());
+        auto controlQueue = device.getInputQueue("control");
+    #endif
+
+    #if defined(USE_CAMER_CONTROL)
+        //------------------
+        // set up camera
+        // /home/nishi/local/git-download/depthai-core/examples/MonoCamera/mono_camera_control.cpp
+        // iso 800  ->  sensIso
+        // exposure, time: 20000  -> expTime
+        dai::CameraControl ctrl;
+        // AutoExposure
+        if(auto_exp){
+            std::cout << " auto_exp: true"<< std::endl;
+            ctrl.setAutoExposureEnable();
+            controlQueue->send(ctrl);
+        }
+        else{
+            std::cout << " expTime: "<< expTime <<" sensIso: "<< sensIso << std::endl;
+            ctrl.setManualExposure(expTime, sensIso);
+            controlQueue->send(ctrl);
+        }
+    #endif
 
     // if文の{}の中に置くと、うまく動きません。必ず直において下さい、
     camera_com::Go_Publish go_pub_left,go_pub_right;
@@ -211,7 +268,6 @@ int main(int argc, char** argv) {
     #endif
     //printf("%s",leftCameraInfo);
 
-
     //std::cout << "Start while()" << std::endl;
 
     //bool im_ok=false;
@@ -225,7 +281,7 @@ int main(int argc, char** argv) {
 
         go_pub_left.init(leftQueue);
         //go_pub_left.set_debug();
-        go_pub_left.openPub(node, tfPrefix + "_left_camera_optical_frame", "left/image_rect", qos, leftCameraInfo);
+        go_pub_left.openPub(node, tfPrefix + "_left_camera_optical_frame", "left/image_rect", qos, leftCameraInfo,trace);
         go_pub_right.init(rightQueue);
         go_pub_right.openPub(node, tfPrefix + "_right_camera_optical_frame", "right/image_rect", qos, rightCameraInfo);
     #else

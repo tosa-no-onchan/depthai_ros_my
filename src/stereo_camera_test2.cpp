@@ -36,6 +36,8 @@
 
 #include "depthai_ros_my/camera_com.hpp"
 
+#define USE_CAMER_CONTROL
+
 
 std::tuple<dai::Pipeline, int, int, float> createPipeline(
     bool withDepth, bool lrcheck, bool extended, bool subpixel, int confidence, int LRchecktresh, std::string resolution,int rate,bool outputDepth,bool outputRectified) {
@@ -47,7 +49,7 @@ std::tuple<dai::Pipeline, int, int, float> createPipeline(
     //bool outputDepth=false;
     //bool outputRectified=true;
 
-    std::cout << " createPipeline()" << std::endl;
+    //std::cout << " createPipeline()" << std::endl;
 
     // Define sources and outputs
     auto monoLeft = pipeline.create<dai::node::MonoCamera>();
@@ -62,6 +64,13 @@ std::tuple<dai::Pipeline, int, int, float> createPipeline(
     auto xoutRectifL = withDepth ? pipeline.create<dai::node::XLinkOut>(): nullptr;
     auto xoutRectifR = withDepth ? pipeline.create<dai::node::XLinkOut>(): nullptr;
 
+    #if defined(USE_CAMER_CONTROL)
+        auto controlIn = pipeline.create<dai::node::XLinkIn>();
+        controlIn->setStreamName("control");
+        // Linking
+        controlIn->out.link(monoRight->inputControl);
+        controlIn->out.link(monoLeft->inputControl);
+    #endif
 
     // XLinkOut
     xoutLeft->setStreamName("left");
@@ -75,7 +84,7 @@ std::tuple<dai::Pipeline, int, int, float> createPipeline(
     }
 
 
-    std::cout << " createPipeline() :#5 " << std::endl;
+    //std::cout << " createPipeline() :#5 " << std::endl;
 
     int width, height;
     if(resolution == "720p") {
@@ -133,34 +142,27 @@ std::tuple<dai::Pipeline, int, int, float> createPipeline(
             stereo->rectifiedLeft.link(xoutRectifL->input);
             stereo->rectifiedRight.link(xoutRectifR->input);
         }
-
         if(outputDepth) {
             stereo->depth.link(xoutDepth->input);
         }
-
     } 
     else {
         // Link plugins CAM -> XLINK
         monoLeft->out.link(xoutLeft->input);
         monoRight->out.link(xoutRight->input);
     }
-
-
     // Disparity range is used for normalization
     float disparityMultiplier = withDepth ? 255 / stereo->initialConfig.getMaxDisparity() : 0;
 
-
-    std::cout << " createPipeline() :#99" << std::endl;
-
+    //std::cout << " createPipeline() :#99" << std::endl;
     return std::make_tuple(pipeline, width, height, disparityMultiplier);
 }
 
-
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("stereo_camera_my");
+    auto node = rclcpp::Node::make_shared("stereo_camera_test2");
 
-    std::cout << "start stereo_camera_my" << std::endl;
+    std::cout << "start stereo_camera_test2" << std::endl;
 
     bool outputDepth=false;
     bool outputRectified=true;
@@ -175,6 +177,17 @@ int main(int argc, char** argv) {
 
     int rate, queue_size;   // add by  nishi 2024.5..6
     int qos;
+    bool trace;
+
+    bool auto_exp;
+    // Defaults and limits for manual focus/exposure controls
+    int expTime = 20000;
+    int expMin = 1;
+    int expMax = 33000;
+
+    int sensIso = 800;
+    int sensMin = 100;
+    int sensMax = 1600;
 
     node->declare_parameter("qos", 1);    // add by nishi 2024.5.6
     node->declare_parameter("tf_prefix", "oak");
@@ -188,6 +201,11 @@ int main(int argc, char** argv) {
 
     node->declare_parameter("rate", 30);    // add by nishi 2024.5.6
     node->declare_parameter("queue_size", 30);    // add by nishi 2024.5.6
+    node->declare_parameter("trace", false);
+
+    node->declare_parameter("auto_exp", false);
+    node->declare_parameter("expTime", 20000);    // add by nishi 2024.5.18
+    node->declare_parameter("sensIso", 800);    // add by nishi 2024.5.18
 
     node->get_parameter("qos", qos);      // add by nishi 2024.5.5
     node->get_parameter("tf_prefix", tfPrefix);
@@ -201,6 +219,11 @@ int main(int argc, char** argv) {
 
     node->get_parameter("rate", rate);      // add by nishi 2024.5.5
     node->get_parameter("queue_size", queue_size);      // add by nishi 2024.5.5
+    node->get_parameter("trace", trace);
+
+    node->get_parameter("auto_exp", auto_exp);
+    node->get_parameter("expTime", expTime);      // add by nishi 2024.5.18
+    node->get_parameter("sensIso", sensIso);      // add by nishi 2024.5.18
 
     std::cout << " queue_size:"<< queue_size << std::endl;
 
@@ -214,15 +237,12 @@ int main(int argc, char** argv) {
     // test by nishi 2024.5.13
     enableDepth = false;
 
-    std::cout << " passed #2" << std::endl;
-
+    //-------------------
+    // set up oak-d camera device
+    //-------------------
     std::tie(pipeline, monoWidth, monoHeight, disparityMultiplier) = createPipeline(enableDepth, lrcheck, extended, subpixel, confidence, LRchecktresh, monoResolution, rate,outputDepth,outputRectified);
 
-    std::cout << " passed #2.1" << std::endl;
-
     dai::Device device(pipeline);
-
-    std::cout << " passed #3" << std::endl;
 
     auto leftQueue = device.getOutputQueue("left", queue_size, false);
     auto rightQueue = device.getOutputQueue("right", queue_size, false);
@@ -236,27 +256,58 @@ int main(int argc, char** argv) {
     // Disparity range is used for normalization
     //float disparityMultiplier = enableDepth ? 255 / stereo->initialConfig.getMaxDisparity() : 0;
 
+    #if defined(USE_CAMER_CONTROL)
+        //auto controlQueue = device.getInputQueue(controlIn->getStreamName());
+        auto controlQueue = device.getInputQueue("control");
+    #endif
 
+    #if defined(USE_CAMER_CONTROL)
+        //------------------
+        // set up camera
+        // /home/nishi/local/git-download/depthai-core/examples/MonoCamera/mono_camera_control.cpp
+        // iso 800  ->  sensIso
+        // exposure, time: 20000  -> expTime
+        dai::CameraControl ctrl;
+        // AutoExposure
+        if(auto_exp){
+            std::cout << " auto_exp: true"<< std::endl;
+            ctrl.setAutoExposureEnable();
+            controlQueue->send(ctrl);
+        }
+        else{
+            std::cout << " expTime: "<< expTime <<" sensIso: "<< sensIso << std::endl;
+            ctrl.setManualExposure(expTime, sensIso);
+            controlQueue->send(ctrl);
+        }
+    #endif
+
+    //------------------
     // set up camera info
+    //------------------
     auto calibrationHandler = device.readCalibration();
 
-    dai::rosBridge::ImageConverter converter(tfPrefix + "_left_camera_optical_frame", true);
-    sensor_msgs::msg::CameraInfo leftCameraInfo = converter.calibrationToCameraInfo(calibrationHandler, dai::CameraBoardSocket::CAM_B, monoWidth, monoHeight);
+    //#define USE_ORG_CONVERTER
+    #if defined(USE_ORG_CONVERTER)
+        dai::rosBridge::ImageConverter converter(tfPrefix + "_left_camera_optical_frame", true);
+        sensor_msgs::msg::CameraInfo leftCameraInfo = converter.calibrationToCameraInfo(calibrationHandler, dai::CameraBoardSocket::CAM_B, monoWidth, monoHeight);
+        dai::rosBridge::ImageConverter rightconverter(tfPrefix + "_right_camera_optical_frame", true);
+        auto rightCameraInfo = rightconverter.calibrationToCameraInfo(calibrationHandler, dai::CameraBoardSocket::CAM_C, monoWidth, monoHeight);
+    #else
+        camera_com::CameraTools camera_tools;
+        //camera_tools._reverseStereoSocketOrder = true;   // rtabmap_ros の rect_img のときは必要。
+        auto leftCameraInfo = camera_tools.calibrationToCameraInfo_my(calibrationHandler, dai::CameraBoardSocket::CAM_B, monoWidth, monoHeight);
+        auto rightCameraInfo = camera_tools.calibrationToCameraInfo_my(calibrationHandler, dai::CameraBoardSocket::CAM_C, monoWidth, monoHeight);
+    #endif
 
-    //printf("%s",leftCameraInfo);
-
-    dai::rosBridge::ImageConverter rightconverter(tfPrefix + "_right_camera_optical_frame", true);
-    auto rightCameraInfo = rightconverter.calibrationToCameraInfo(calibrationHandler, dai::CameraBoardSocket::CAM_C, monoWidth, monoHeight);
-
-    std::cout << "Start while()" << std::endl;
+    //std::cout << "Start while()" << std::endl;
 
     bool im_ok=false;
 
     //stereo_com::Que_Recv que_recv_left,que_recv_right;
     camera_com::Go_Publish go_pub_left,go_pub_right;
-    go_pub_left.init(leftQueue, "left");
-    go_pub_left.openPub(node, tfPrefix + "_left_camera_optical_frame", "left/image_raw", qos, leftCameraInfo);
-    go_pub_right.init(rightQueue, "right");
+    go_pub_left.init(leftQueue);
+    go_pub_left.openPub(node, tfPrefix + "_left_camera_optical_frame", "left/image_raw", qos, leftCameraInfo,trace);
+    go_pub_right.init(rightQueue);
     go_pub_right.openPub(node, tfPrefix + "_right_camera_optical_frame", "right/image_raw", qos, rightCameraInfo);
 
     camera_com::Que_Recv dispQueue_recv, depthQueue_recv,
