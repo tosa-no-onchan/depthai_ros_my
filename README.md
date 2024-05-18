@@ -3,6 +3,7 @@ OAK-D Lite 対応 ROS2 Humble depthai-ros example の改造版です。
 
     stereo_publisher_my.cpp  
     rgb_stereo_node_my.cpp  
+    stereo_camera_test2.cpp  
 
   ubuntu 22.04  
   PC and OrangePi 5 (Armbian and ubuntu 22.04)  
@@ -41,14 +42,20 @@ i. publish img_rect and depth for ratbmap_ros stereo rect
 
     $ ros2 launch depthai_ros_my oak-d_stereo.launch.py    
 
-rem. build and exec src/stereo_publisher_my.cpp  
+rem. exec src/stereo_publisher_my.cpp  
 
-ii. publish rgb and depth for rtambap_ros depth
+ii. publish rgb and depth for rtambap_ros depth  
 
     $ ros2 launch depthai_ros_my oak-d_rgb_stereo_node.launch.py  
 
-rem. build and exec src/rgb_stereo_node_my.cpp  
-   
+rem. exec src/rgb_stereo_node_my.cpp  
+
+iii. publish mono8 stereo  
+
+    $ ros2 launch depthai_ros_my stereo_camera.launch.py  
+
+rem. exec src/stereo_camera_test2.cpp  
+
 #### 4. My library  
 
     src/camera_com.cpp and include/depthai_ros_my/camera_com.hpp    
