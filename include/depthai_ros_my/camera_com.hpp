@@ -44,6 +44,9 @@
 
 #include "depthai-shared/datatype/RawImgFrame.hpp"
 
+//#include <vision_msgs/msg/detection2_d_array.hpp>
+
+
 namespace camera_com {
 
 class CameraTools{
@@ -94,18 +97,29 @@ public:
         output_queue_->addCallback(std::bind(&Que_Recv::dataCallback, this, std::placeholders::_1, std::placeholders::_2));
     }
 
+    //-----------
+    // 1) image
+    // reffer /home/nishi/colcon_ws/src/depthai-ros/depthai_bridge/include/depthai_bridge/BridgePublisher.hpp
+    //  void BridgePublisher<RosMsg, SimMsg>::daiCallback(std::string name, std::shared_ptr<ADatatype> data)
+    // 2) detection
+    // reffer /home/nishi/colcon_ws/src/depthai-ros/depthai_ros_driver/include/depthai_ros_driver/dai_nodes/nn/detection.hpp
+    //  void detectionCB(const std::string& /*name*/, const std::shared_ptr<dai::ADatatype>& data)
+    //-----------
     void dataCallback(std::string name, std::shared_ptr<dai::ADatatype> data){
-        auto daiDataPtr = std::dynamic_pointer_cast<dai::ImgFrame>(data);
+        //auto daiDataPtr = std::dynamic_pointer_cast<dai::ImgFrame>(data);
+        //auto inDet = std::dynamic_pointer_cast<dai::ImgDetections>(data);
         if(is_debug_){
             std::cout << "dataCallback() name:=" << name << std::endl;
         }
         if(pub_ready_){
             //feedImages(name,daiDataPtr);
-            feedImages(daiDataPtr);
+            //feedImages(daiDataPtr);
+            feedImages(data);
         }
     }
 
-    virtual void feedImages(std::shared_ptr<dai::ImgFrame> &inData){}
+    //virtual void feedImages(std::shared_ptr<dai::ImgFrame> &inData){}
+    virtual void feedImages(std::shared_ptr<dai::ADatatype> &Data){}
 
     //std::string name_;
     std::shared_ptr<dai::DataOutputQueue> output_queue_;
@@ -125,13 +139,10 @@ private:
 * class Go_Publish
 -----------------------*/
 class Go_Publish: public Que_Recv{
-
 public:
 
     std::shared_ptr<rclcpp::Node> node_;
-
     bool rgb2grey_=false;
-
     Go_Publish(){}
 
     //void init(std::shared_ptr<dai::DataOutputQueue> output_queue, bool is_debug=false){
@@ -139,11 +150,10 @@ public:
     //};
 
     void openPub(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos, sensor_msgs::msg::CameraInfo &cameraInfo,bool trace=false);
-
     void openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos);
-
     void sendInfo(rclcpp::Time time, std::shared_ptr<sensor_msgs::msg::Image> const & img);
-    void feedImages(std::shared_ptr<dai::ImgFrame> &inData);
+    //void feedImages(std::shared_ptr<dai::ImgFrame> &inData);
+    void feedImages(std::shared_ptr<dai::ADatatype> &Data);
 
     void set_debug(){
         debug_f_=true;
@@ -174,5 +184,54 @@ public:
 
 };
 
+
+/*----------------------
+* class Go_DtectPublish
+-----------------------*/
+class Go_DtectPublish: public Que_Recv{
+public:
+
+    std::shared_ptr<rclcpp::Node> node_;
+    bool rgb2grey_=false;
+    Go_DtectPublish(){}
+
+    //void init(std::shared_ptr<dai::DataOutputQueue> output_queue, bool is_debug=false){
+    //    Que_Recv::init(output_queue, is_debug);
+    //};
+
+    void openPub(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos, sensor_msgs::msg::CameraInfo &cameraInfo,bool trace=false);
+    void openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos);
+    void sendInfo(rclcpp::Time time, std::shared_ptr<sensor_msgs::msg::Image> const & img);
+    //void feedImages(std::shared_ptr<dai::ImgFrame> &inData);
+    void feedImages(std::shared_ptr<dai::ADatatype> &Data);
+
+    void set_debug(){
+        debug_f_=true;
+    }
+
+    bool checkCameraInfo(sensor_msgs::msg::Image const & img, sensor_msgs::msg::CameraInfo const & ci)
+    {
+        return ci.width == img.width && ci.height == img.height;
+    }
+
+    //sensor_msgs::msg::CameraInfo calibrationToCameraInfo(dai::CalibrationHandler calibHandler, dai::CameraBoardSocket cameraId, int width, int height, Point2f topLeftPixelId, Point2f bottomRightPixelId);
+
+
+  private:
+    bool debug_f_=false;
+    bool noInfo_f_= false;
+    bool trace_ = false;
+    rclcpp::Time start_t_;
+    double sec_dur_ = 3.0;
+    int cnt_=0;
+
+
+    std::string frame_name_;
+    std::string topic_name_;
+    std::shared_ptr<camera_info_manager::CameraInfoManager> info_mgr_;
+    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr info_pub_;
+    image_transport::CameraPublisher camera_transport_pub_;
+
+};
 
 }

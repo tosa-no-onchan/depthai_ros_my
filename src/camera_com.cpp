@@ -252,11 +252,13 @@ void Go_Publish::openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::string 
 /*--------------
 * Go_Publish::feedImages()
 ----------------*/
-void Go_Publish::feedImages(std::shared_ptr<dai::ImgFrame> &inData){
+//void Go_Publish::feedImages(std::shared_ptr<dai::ImgFrame> &inData){
+void Go_Publish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
     if(debug_f_){
         std::cout << "feedImagesPub() name:=" << Que_Recv::name_ << std::endl;
         std::cout << " frame_name_:"<< frame_name_ << std::endl;
     }
+    auto inData = std::dynamic_pointer_cast<dai::ImgFrame>(Data);
 
     rclcpp::Time capture_time = node_->now();
     cv::Mat mat, output;
@@ -499,5 +501,6 @@ void Go_Publish::sendInfo(rclcpp::Time time, std::shared_ptr<sensor_msgs::msg::I
     //trace_sts_=23;
     //}
 }
+
 
 }
