@@ -107,10 +107,12 @@ dai_add_node_ros2(rgb_stereo_node_my src/rgb_stereo_node_my.cpp)
 dai_add_node_ros2(mobilenet_publisher src/mobilenet_publisher.cpp)
 #
 dai_add_node_ros2(rgb_mobilenet src/rgb_mobilenet.cpp)
+dai_add_node_ros2(tiny_yolo_v4 src/tiny_yolo.cpp)
 
 
 target_compile_definitions(mobilenet_publisher PRIVATE BLOB_NAME="${mobilenet_blob_name}")
 target_compile_definitions(rgb_mobilenet PRIVATE BLOB_PATH="${mobilenet_blob_name}")
+target_compile_definitions(tiny_yolo_v4 PRIVATE BLOB_PATH="${tiny_yolo_v4_blob_name}")
 
 if($ENV{ROS_DISTRO} STREQUAL "galactic")
   target_compile_definitions(rgb_stereo_node PRIVATE IS_GALACTIC)
@@ -128,6 +130,7 @@ install(TARGETS
         stereo_publisher_my
         mobilenet_publisher
         rgb_mobilenet
+        tiny_yolo_v4
         DESTINATION lib/${PROJECT_NAME})
 
 # install the launch directory

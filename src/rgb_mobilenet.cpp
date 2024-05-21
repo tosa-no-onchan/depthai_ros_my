@@ -5,8 +5,8 @@
 * depthai-core/examples/MobileNet/rgb_mobilenet.cpp
 *
 * 1. build
-#  $ colcon build --symlink-install --parallel-workers 1 --packages-select depthai_ros_my
-#  $ . install/setup.bash
+*  $ colcon build --symlink-install --parallel-workers 1 --packages-select depthai_ros_my
+* $ . install/setup.bash
 *
 * 2. run
 *  $ ros2 run depthai_ros_my rgb_mobilenet /home/nishi/colcon_ws/src/depthai_ros_my/resources/mobilenet-ssd_openvino_2021.2_6shave.blob
@@ -52,6 +52,8 @@ int main(int argc, char** argv) {
     // Define sources and outputs
     auto camRgb = pipeline.create<dai::node::ColorCamera>();
     auto nn = pipeline.create<dai::node::MobileNetDetectionNetwork>();
+
+    // create xlink connections
     auto xoutRgb = pipeline.create<dai::node::XLinkOut>();
     auto nnOut = pipeline.create<dai::node::XLinkOut>();
     auto nnNetworkOut = pipeline.create<dai::node::XLinkOut>();
