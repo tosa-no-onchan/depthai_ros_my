@@ -45,6 +45,7 @@
 #include "depthai-shared/datatype/RawImgFrame.hpp"
 
 //#include <vision_msgs/msg/detection2_d_array.hpp>
+#include "vision_msgs/msg/detection2_d_array.hpp"
 
 
 namespace camera_com {
@@ -200,7 +201,7 @@ public:
     //};
 
     void openPub(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos, sensor_msgs::msg::CameraInfo &cameraInfo,bool trace=false);
-    void openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos);
+    void openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos,int width, int height , bool normalized=false);
     void sendInfo(rclcpp::Time time, std::shared_ptr<sensor_msgs::msg::Image> const & img);
     //void feedImages(std::shared_ptr<dai::ImgFrame> &inData);
     void feedImages(std::shared_ptr<dai::ADatatype> &Data);
@@ -225,12 +226,17 @@ public:
     double sec_dur_ = 3.0;
     int cnt_=0;
 
+    int width_, height_;
+    bool normalized_;
+
 
     std::string frame_name_;
     std::string topic_name_;
     std::shared_ptr<camera_info_manager::CameraInfoManager> info_mgr_;
     rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr info_pub_;
     image_transport::CameraPublisher camera_transport_pub_;
+
+    rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detect_pub_;
 
 };
 

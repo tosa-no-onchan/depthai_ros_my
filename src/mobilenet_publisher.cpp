@@ -171,7 +171,7 @@ int main(int argc, char** argv) {
 
         go_dpub_nNetDataQueue.init(nNetDataQueue);
         //go_dpub_nNetDataQueue.set_debug();
-        go_dpub_nNetDataQueue.openPub(node, tfPrefix + "_rgb_camera_optical_frame", "color/mobilenet_detections", qos, previewCameraInfo,true);
+        go_dpub_nNetDataQueue.openPub_noInfo(node, tfPrefix + "_rgb_camera_optical_frame", "color/mobilenet_detections", qos, previewWidth, previewHeight, false);
 
     #endif
 

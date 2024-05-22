@@ -4,7 +4,17 @@
 
 #include "depthai_ros_my/camera_com.hpp"
 
+//#include "sensor_msgs/msg/image.hpp"
+//#include "vision_msgs/msg/detection2_d_array.hpp"
+
+//#include <vision_msgs/msg/detection2_d_array.hpp>
+
+
 namespace camera_com {
+
+//namespace VisionMsgs = vision_msgs::msg;
+//using Detection2DArrayPtr = VisionMsgs::Detection2DArray::SharedPtr;
+
 
 /*
 * classs Go_DtectPublish members
@@ -62,15 +72,37 @@ void Go_DtectPublish::openPub(std::shared_ptr<rclcpp::Node> node, std::string fr
 /*--------------
 * Go_DtectPublish::openPub_noInfo()
 ----------------*/
-void Go_DtectPublish::openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos){
+void Go_DtectPublish::openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::string frame_name, std::string topic_name, int qos,int width, int height , bool normalized){
+
+    if(debug_f_)
+        std::cout << "openPub_noInfo() start" << std::endl;
 
     node_=node;
     frame_name_ = frame_name;
     topic_name_ = topic_name;
+    width_=width;
+    height_=height;
+    normalized_=normalized;
 
     Que_Recv::pub_ready_=true;
 
+    //#define USE_ORG_QOS
+    #if defined(USE_ORG_QOS)
+        int video_qos = qos;
+    #else
+        rclcpp::QoS video_qos(1);
+        video_qos.reliability((rmw_qos_reliability_policy_t)qos);
+    #endif
+
+    //auto detect_pub_ = node_->create_publisher<vision_msgs::msg::Detection2DArray>(topic_name_, video_qos);
+    detect_pub_ = node_->create_publisher<vision_msgs::msg::Detection2DArray>(topic_name_, video_qos);
+
+    //printf("%s",detect_pub_);
+
     noInfo_f_=true;
+
+    if(debug_f_)
+        std::cout << "openPub_noInfo(): 99" << std::endl;
 
 }
 
@@ -79,6 +111,20 @@ void Go_DtectPublish::openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::st
 * reffer from
 *  /home/nishi/colcon_ws/src/depthai-ros/depthai_bridge/src/ImgDetectionConverter.cpp
 *   void ImgDetectionConverter::toRosMsg(std::shared_ptr<dai::ImgDetections> inNetData, std::deque<VisionMsgs::Detection2DArray>& opDetectionMsgs)
+*
+* call sequence
+* 1) depthai-ros/depthai_bridge/include/depthai_bridge/BridgePublisher.hpp
+*  line 219     _daiMessageQueue->addCallback(std::bind(&BridgePublisher<RosMsg, SimMsg>::daiCallback, this, std::placeholders::_1, std::placeholders::_2));
+*   ↓
+*  line 181  void BridgePublisher<RosMsg, SimMsg>::daiCallback(std::string name, std::shared_ptr<ADatatype> data)
+*   ↓
+*  line 224 void BridgePublisher<RosMsg, SimMsg>::publishHelper(std::shared_ptr<SimMsg> inDataPtr)
+*   ↓
+* 2) depthai-ros/depthai_bridge/src/ImgDetectionConverter.cpp
+*   line 25 
+*      void ImgDetectionConverter::toRosMsg(std::shared_ptr<dai::ImgDetections> inNetData, std::deque<VisionMsgs::Detection2DArray>& opDetectionMsgs) 
+*      & opDetectionMsgs に、データを変換する。
+* 
 ----------------*/
 //void Go_DtectPublish::feedImages(std::shared_ptr<dai::ImgFrame> &inData){
 void Go_DtectPublish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
@@ -87,12 +133,24 @@ void Go_DtectPublish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
         std::cout << "feedImagesPub() name:=" << Que_Recv::name_ << std::endl;
         std::cout << " frame_name_:"<< frame_name_ << std::endl;
     }
-    auto inData = std::dynamic_pointer_cast<dai::ImgFrame>(Data);
-    //auto inData = std::dynamic_pointer_cast<dai::ImgDetections>(Data);
-    rclcpp::Time capture_time = node_->now();
+    //auto inData = std::dynamic_pointer_cast<dai::ImgFrame>(Data);
+    auto inNetData = std::dynamic_pointer_cast<dai::ImgDetections>(Data);
 
-    //VisionMsgs::Detection2DArray opDetectionMsg;
-
+    #if defined(USE_ORG_TIME)
+        // reffer from
+        // depthai-ros/depthai_bridge/src/ImgDetectionConverter.cpp
+        //  line 25 void ImgDetectionConverter::toRosMsg()
+        if(_updateRosBaseTimeOnToRosMsg) {
+            updateRosBaseTime();
+        }
+        std::chrono::_V2::steady_clock::time_point tstamp;
+        if(_getBaseDeviceTimestamp)
+            tstamp = inNetData->getTimestampDevice();
+        else
+            tstamp = inNetData->getTimestamp();
+    #else
+        rclcpp::Time capture_time = node_->now();
+    #endif
 
     if(trace_){
         cnt_++;
@@ -104,6 +162,59 @@ void Go_DtectPublish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
         }
     }
 
+    //VisionMsgs::Detection2DArray opDetectionMsg;
+    vision_msgs::msg::Detection2DArray opDetectionMsg;
+
+    //opDetectionMsg.header.stamp = getFrameTime(_rosBaseTime, _steadyBaseTime, tstamp);
+    opDetectionMsg.header.stamp = capture_time;
+    opDetectionMsg.header.frame_id = frame_name_;
+    opDetectionMsg.detections.resize(inNetData->detections.size());
+
+    for(int i = 0; i < inNetData->detections.size(); ++i) {
+
+        int xMin, yMin, xMax, yMax;
+        if(normalized_) {
+            xMin = inNetData->detections[i].xmin;
+            yMin = inNetData->detections[i].ymin;
+            xMax = inNetData->detections[i].xmax;
+            yMax = inNetData->detections[i].ymax;
+        } 
+        else {
+            xMin = inNetData->detections[i].xmin * width_;
+            yMin = inNetData->detections[i].ymin * height_;
+            xMax = inNetData->detections[i].xmax * width_;
+            yMax = inNetData->detections[i].ymax * height_;
+        }
+
+        float xSize = xMax - xMin;
+        float ySize = yMax - yMin;
+        float xCenter = xMin + xSize / 2;
+        float yCenter = yMin + ySize / 2;
+
+        opDetectionMsg.detections[i].results.resize(1);
+
+        #define IS_HUMBLE
+        #if defined(IS_GALACTIC) || defined(IS_HUMBLE)
+            opDetectionMsg.detections[i].id = std::to_string(inNetData->detections[i].label);
+            opDetectionMsg.detections[i].results[0].hypothesis.class_id = std::to_string(inNetData->detections[i].label);
+            opDetectionMsg.detections[i].results[0].hypothesis.score = inNetData->detections[i].confidence;
+        #elif defined(IS_ROS2)
+            opDetectionMsg.detections[i].results[0].id = std::to_string(inNetData->detections[i].label);
+            opDetectionMsg.detections[i].results[0].score = inNetData->detections[i].confidence;
+        #endif
+        #if defined(IS_HUMBLE)
+            opDetectionMsg.detections[i].bbox.center.position.x = xCenter;
+            opDetectionMsg.detections[i].bbox.center.position.y = yCenter;
+        #else
+            opDetectionMsg.detections[i].bbox.center.x = xCenter;
+            opDetectionMsg.detections[i].bbox.center.y = yCenter;
+        #endif
+        opDetectionMsg.detections[i].bbox.size_x = xSize;
+        opDetectionMsg.detections[i].bbox.size_y = ySize;
+    }
+
+    // exe publish
+    detect_pub_->publish(opDetectionMsg);
 
     if(debug_f_){
         std::cout << " frame_name_:"<< frame_name_ << std::endl;
