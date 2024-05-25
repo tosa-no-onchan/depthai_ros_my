@@ -56,6 +56,17 @@ iii. publish mono8 stereo
 
 rem. exec src/stereo_camera_test2.cpp  
 
+iv. publish and subscribe mobilnet object detection  
+Use USB3 cable and sufficiant power supply.  
+
+    term1  
+    $ ros2 launch depthai_ros_my mobilenet_publisher.launch.py  
+    check acutual topic output.  
+    $ ros2 topic echo /color/image  
+
+    term2  
+    $ ros2 run depthai_ros_my detect_subscriber  
+
 #### 4. My library  
 
     src/camera_com.cpp and include/depthai_ros_my/camera_com.hpp    
