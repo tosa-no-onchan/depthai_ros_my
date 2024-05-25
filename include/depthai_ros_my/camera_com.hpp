@@ -210,6 +210,11 @@ public:
         debug_f_=true;
     }
 
+    void set_labelmap(std::vector<std::string> *labelMap){
+        labelMap_=labelMap;
+        is_labelMap_=true;
+    }
+
     bool checkCameraInfo(sensor_msgs::msg::Image const & img, sensor_msgs::msg::CameraInfo const & ci)
     {
         return ci.width == img.width && ci.height == img.height;
@@ -229,6 +234,8 @@ public:
     int width_, height_;
     bool normalized_;
 
+    bool is_labelMap_=false;
+    std::vector<std::string> *labelMap_;
 
     std::string frame_name_;
     std::string topic_name_;

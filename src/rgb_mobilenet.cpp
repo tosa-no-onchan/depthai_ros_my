@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
 
     // Add bounding boxes and text to the frame and show it to the user
     auto displayFrame = [](std::string name, cv::Mat frame, std::vector<dai::ImgDetection>& detections) {
-        auto color = cv::Scalar(255, 0, 0);
+        auto color = cv::Scalar(255, 0, 255);
         // nn data, being the bounding box locations, are in <0..1> range - they need to be normalized with frame width/height
         for(auto& detection : detections) {
             int x1 = detection.xmin * frame.cols;

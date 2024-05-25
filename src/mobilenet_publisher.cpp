@@ -7,6 +7,9 @@
 *  depthai-ros/depthai_examples/src/mobilenet_publisher.cpp
 * reffer from
 *  depthai-core/examples/MobileNet/rgb_mobilenet.cpp
+*
+* how to use ?
+*  http://zdome.net/wiki/index.php/Object_Detection_Subscriber_for_Foxy_alsora_ros2-tensorflow_20220127
 */
 
 #include <cstdio>
@@ -31,6 +34,12 @@
 
 // add by nishi
 #include "depthai_ros_my/camera_com.hpp"
+
+// MobilenetSSD label texts
+//static const std::vector<std::string> labelMap = {"background", "aeroplane", "bicycle",     "bird",  "boat",        "bottle", "bus",
+std::vector<std::string> labelMap = {"background", "aeroplane", "bicycle",     "bird",  "boat",        "bottle", "bus",
+                                                  "car",        "cat",       "chair",       "cow",   "diningtable", "dog",    "horse",
+                                                  "motorbike",  "person",    "pottedplant", "sheep", "sofa",        "train",  "tvmonitor"};
 
 
 dai::Pipeline createPipeline(bool syncNN, std::string nnPath,int rate=30) {
@@ -170,6 +179,7 @@ int main(int argc, char** argv) {
         go_pub_previewQueue.openPub(node, tfPrefix + "_rgb_camera_optical_frame", "color/image", qos, previewCameraInfo);
 
         go_dpub_nNetDataQueue.init(nNetDataQueue);
+        go_dpub_nNetDataQueue.set_labelmap(&labelMap);
         //go_dpub_nNetDataQueue.set_debug();
         go_dpub_nNetDataQueue.openPub_noInfo(node, tfPrefix + "_rgb_camera_optical_frame", "color/mobilenet_detections", qos, previewWidth, previewHeight, false);
 

@@ -2,8 +2,12 @@ cmake_minimum_required(VERSION 3.10.2)
 project(depthai_ros_my VERSION 2.9.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 14)
+#set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+#add_compile_options(-g)
+
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -97,6 +101,8 @@ macro(dai_add_node_ros2 node_name node_src)
 
 endmacro()
 
+dai_add_node_ros2(detect_subscriber src/detect_subscriber.cpp)
+#
 dai_add_node_ros2(rgb_stereo_node src/rgb_stereo_node.cpp)
 dai_add_node_ros2(stereo_publisher src/stereo_publisher.cpp)
 # add by nishi 2024.5.10
@@ -108,6 +114,7 @@ dai_add_node_ros2(mobilenet_publisher src/mobilenet_publisher.cpp)
 #
 dai_add_node_ros2(rgb_mobilenet src/rgb_mobilenet.cpp)
 dai_add_node_ros2(tiny_yolo_v4 src/tiny_yolo.cpp)
+#
 
 
 target_compile_definitions(mobilenet_publisher PRIVATE BLOB_NAME="${mobilenet_blob_name}")
@@ -122,6 +129,7 @@ endif()
 
 
 install(TARGETS
+        detect_subscriber
         rgb_stereo_node
         stereo_publisher
         stereo_camera_test

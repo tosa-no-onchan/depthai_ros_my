@@ -195,7 +195,16 @@ void Go_DtectPublish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
 
         #define IS_HUMBLE
         #if defined(IS_GALACTIC) || defined(IS_HUMBLE)
-            opDetectionMsg.detections[i].id = std::to_string(inNetData->detections[i].label);
+            //opDetectionMsg.detections[i].id = std::to_string(inNetData->detections[i].label);
+            uint32_t labelIndex = inNetData->detections[i].label;
+            std::string labelStr = std::to_string(labelIndex);
+            if(is_labelMap_){
+                // changed by nishi 2024.5.24
+                if(labelIndex < labelMap_->size()){
+                    labelStr = labelMap_->at(labelIndex);
+                }
+            }
+            opDetectionMsg.detections[i].id = labelStr;
             opDetectionMsg.detections[i].results[0].hypothesis.class_id = std::to_string(inNetData->detections[i].label);
             opDetectionMsg.detections[i].results[0].hypothesis.score = inNetData->detections[i].confidence;
         #elif defined(IS_ROS2)
