@@ -43,11 +43,12 @@ public:
         //this->init(node_,topic_,queue_size);      // OK
     }
 
-    void activate_detect(std::string topic, int queue_size=10){
+    void activate_detect(std::string topic, int queue_size=10,bool normalized=true){
         //dtect_sub_ = node_->create_subscription<vision_msgs::msg::Detection2DArray>(
         //      topic, queue_size, std::bind(&Detect_Sub::callback, this, _1));
 
         detect_topic_=topic;
+        normalized_=normalized;
         if(is_trace)
             std::cout << " activate_detect() topic: "<< detect_topic_ << std::endl;
 
@@ -55,6 +56,7 @@ public:
     }
 
     bool is_trace=false;
+    bool normalized_=true;
 
 private:
     std::shared_ptr<rclcpp::Node> node_;
@@ -115,15 +117,24 @@ private:
                 std::string class_name = detectData->detections[i].id;
                 double score = detectData->detections[i].results[0].hypothesis.score;
 
-                int xCenter = detectData->detections[i].bbox.center.position.x;
-                int yCenter = detectData->detections[i].bbox.center.position.y;
-                int xSize = detectData->detections[i].bbox.size_x;
-                int ySize = detectData->detections[i].bbox.size_y;
+                double xCenter = detectData->detections[i].bbox.center.position.x;
+                double yCenter = detectData->detections[i].bbox.center.position.y;
+                double xSize = detectData->detections[i].bbox.size_x;
+                double ySize = detectData->detections[i].bbox.size_y;
 
-                int x1 = xCenter - xSize/2;
-                int x2 = x1 + xSize;
-                int y1 = yCenter - ySize/2;
-                int y2 = y1 + ySize;
+                int x1,x2,y1,y2;
+                if(normalized_==true){
+                    x1 = (xCenter - xSize/2)*width;
+                    x2 = (x1 + xSize)*width;
+                    y1 = (yCenter - ySize/2)*height;
+                    y2 = (y1 + ySize)*height;
+                }
+                else{
+                    x1 = xCenter - xSize/2;
+                    x2 = x1 + xSize;
+                    y1 = yCenter - ySize/2;
+                    y2 = y1 + ySize;
+                }
 
                 if(is_trace)
                     std::cout << " class_name:" << class_name <<  std::endl;
@@ -162,6 +173,7 @@ int main(int argc, char** argv) {
     int queue_size;
 
     node->declare_parameter("topic", "color/image");
+    //node->declare_parameter("topic", "color/video/image");
     node->declare_parameter("detect_topic", "color/mobilenet_detections");
     node->declare_parameter("queue_size", 10);
 

@@ -1,5 +1,4 @@
 /*
-* stereo_camera.cpp
 *
 * depthai_ros_my/src/mobilenet_publisher.cpp
 *
@@ -68,7 +67,7 @@ dai::Pipeline createPipeline(bool syncNN, std::string nnPath,int rate=30) {
     if(syncNN)
         detectionNetwork->passthrough.link(xlinkOut->input);
     else
-        colorCam->preview.link(xlinkOut->input);
+        colorCam->preview.link(xlinkOut->input);        // ここ変?
 
     detectionNetwork->out.link(nnOut->input);
     return pipeline;
@@ -88,6 +87,7 @@ int main(int argc, char** argv) {
 
     int rate = 30;
     int queue_size = 2;
+    bool normalized=true;
 
     node->declare_parameter("tf_prefix", "oak");
     node->declare_parameter("camera_param_uri", cameraParamUri);
@@ -97,6 +97,7 @@ int main(int argc, char** argv) {
 
     node->declare_parameter("rate", rate);
     node->declare_parameter("queue_size", queue_size);
+    node->declare_parameter("normalized", normalized);
 
     node->get_parameter("tf_prefix", tfPrefix);
     node->get_parameter("camera_param_uri", cameraParamUri);
@@ -115,6 +116,7 @@ int main(int argc, char** argv) {
 
     node->get_parameter("rate", rate);
     node->get_parameter("queue_size", queue_size);
+    node->get_parameter("normalized", normalized);
 
     std::cout << " nnName: "<< nnName << std::endl;
     std::cout << " rate: "<< rate << std::endl;
@@ -181,7 +183,7 @@ int main(int argc, char** argv) {
         go_dpub_nNetDataQueue.init(nNetDataQueue);
         go_dpub_nNetDataQueue.set_labelmap(&labelMap);
         //go_dpub_nNetDataQueue.set_debug();
-        go_dpub_nNetDataQueue.openPub_noInfo(node, tfPrefix + "_rgb_camera_optical_frame", "color/mobilenet_detections", qos, previewWidth, previewHeight, false);
+        go_dpub_nNetDataQueue.openPub_noInfo(node, tfPrefix + "_rgb_camera_optical_frame", "color/mobilenet_detections", qos, previewWidth, previewHeight, normalized);
 
     #endif
 

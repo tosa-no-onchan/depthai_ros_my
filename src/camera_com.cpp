@@ -252,7 +252,6 @@ void Go_Publish::openPub_noInfo(std::shared_ptr<rclcpp::Node> node, std::string 
 /*--------------
 * Go_Publish::feedImages()
 ----------------*/
-//void Go_Publish::feedImages(std::shared_ptr<dai::ImgFrame> &inData){
 void Go_Publish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
     if(debug_f_){
         std::cout << "feedImagesPub() name:=" << Que_Recv::name_ << std::endl;
@@ -410,7 +409,7 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
             memcpy((unsigned char *)(&image->data[0]),output.data, image->step * image->height);
         #endif
     }
-    // raw , rect ,depth は、こちらか!!
+    // raw , rect ,depth, disparity は、こちらか!!
     else if(encodingEnumMap.find(inData->getType()) != encodingEnumMap.end()) {
         // rect data
         if(debug_f_)
@@ -420,7 +419,7 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
         //outImageMsg.header = header;
         std::string temp_str(encodingEnumMap[inData->getType()]);
         //outImageMsg.encoding = temp_str;
-        image->encoding = temp_str;
+        image->encoding = temp_str; 
 
         if(debug_f_)
             std::cout << " temp_str:"<< temp_str << std::endl;
@@ -444,6 +443,7 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
         size_t size = inData->getData().size();
         image->data.reserve(size);
         image->data = std::move(inData->getData());
+
     }
     if(trace_){
         cnt_++;
@@ -466,7 +466,7 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
 
 
 /*--------------
-* Go_Publish::sendInfo()
+* Go_Publish::sendInfo() for image
 ----------------*/
 void Go_Publish::sendInfo(rclcpp::Time time, std::shared_ptr<sensor_msgs::msg::Image> const & img) {
 
@@ -501,6 +501,5 @@ void Go_Publish::sendInfo(rclcpp::Time time, std::shared_ptr<sensor_msgs::msg::I
     //trace_sts_=23;
     //}
 }
-
 
 }

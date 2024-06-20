@@ -84,10 +84,44 @@ include_directories(
   ${ament_INCLUDE_DIRS}
 )
 
+file(GLOB LIB_SRC
+"src/camera_com.cpp"
+"src/detect_com.cpp"
+"src/disparity_com.cpp"
+"src/utility.cpp"
+)
+
+add_library(${PROJECT_NAME} SHARED ${LIB_SRC})
+
+ament_target_dependencies(${PROJECT_NAME}
+  ${dependencies})
+
+target_link_libraries(${PROJECT_NAME}
+                      depthai::core
+                      opencv_imgproc
+                      opencv_highgui)
+
+
+
 macro(dai_add_node_ros2 node_name node_src)
+  add_executable("${node_name}" "${node_src}"
+  )
+
+  target_link_libraries("${node_name}"
+                        depthai::core
+                        opencv_imgproc
+                        opencv_highgui)
+
+  ament_target_dependencies("${node_name}"
+                            ${dependencies})
+
+endmacro()
+
+macro(dai_add_node_ros2_org node_name node_src)
   add_executable("${node_name}" "${node_src}"
   src/camera_com.cpp
   src/detect_com.cpp
+  src/disparity_com.cpp
   src/utility.cpp
   )
 
@@ -101,20 +135,24 @@ macro(dai_add_node_ros2 node_name node_src)
 
 endmacro()
 
-dai_add_node_ros2(detect_subscriber src/detect_subscriber.cpp)
+
+
+dai_add_node_ros2_org(detect_subscriber src/detect_subscriber.cpp)
 #
-dai_add_node_ros2(rgb_stereo_node src/rgb_stereo_node.cpp)
-dai_add_node_ros2(stereo_publisher src/stereo_publisher.cpp)
+dai_add_node_ros2_org(rgb_stereo_node src/rgb_stereo_node.cpp)
+dai_add_node_ros2_org(stereo_publisher src/stereo_publisher.cpp)
 # add by nishi 2024.5.10
-dai_add_node_ros2(stereo_camera_test src/stereo_camera_test.cpp)
-dai_add_node_ros2(stereo_camera_test2 src/stereo_camera_test2.cpp)
-dai_add_node_ros2(stereo_publisher_my src/stereo_publisher_my.cpp)
-dai_add_node_ros2(rgb_stereo_node_my src/rgb_stereo_node_my.cpp)
-dai_add_node_ros2(mobilenet_publisher src/mobilenet_publisher.cpp)
+dai_add_node_ros2_org(stereo_camera_test src/stereo_camera_test.cpp)
+dai_add_node_ros2_org(stereo_camera_test2 src/stereo_camera_test2.cpp)
+dai_add_node_ros2_org(stereo_publisher_my src/stereo_publisher_my.cpp)
+dai_add_node_ros2_org(rgb_stereo_node_my src/rgb_stereo_node_my.cpp)
+dai_add_node_ros2_org(mobilenet_publisher src/mobilenet_publisher.cpp)
 #
-dai_add_node_ros2(rgb_mobilenet src/rgb_mobilenet.cpp)
-dai_add_node_ros2(tiny_yolo_v4 src/tiny_yolo.cpp)
+dai_add_node_ros2_org(rgb_mobilenet src/rgb_mobilenet.cpp)
+dai_add_node_ros2_org(tiny_yolo_v4 src/tiny_yolo.cpp)
 #
+dai_add_node_ros2_org(mobilenet_publisher_dummy src/mobilenet_publisher_dummy.cpp)
+dai_add_node_ros2_org(rgb_stereo_mobilenet_node_my src/rgb_stereo_mobilenet_node_my.cpp)
 
 
 target_compile_definitions(mobilenet_publisher PRIVATE BLOB_NAME="${mobilenet_blob_name}")
@@ -139,6 +177,8 @@ install(TARGETS
         mobilenet_publisher
         rgb_mobilenet
         tiny_yolo_v4
+        mobilenet_publisher_dummy
+        rgb_stereo_mobilenet_node_my
         DESTINATION lib/${PROJECT_NAME})
 
 # install the launch directory

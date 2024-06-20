@@ -81,8 +81,10 @@ def generate_launch_description():
         Node(
             #package='depthai_examples',
             package='depthai_ros_my',
+            #executable='stereo_node',           # depthai_examples
             #executable='stereo_publisher',
             executable='stereo_publisher_my',
+            #name='stereo_node',                 # depthai_examples
             #name='stereo_publisher',
             name='stereo_publisher_my',
             output="screen",

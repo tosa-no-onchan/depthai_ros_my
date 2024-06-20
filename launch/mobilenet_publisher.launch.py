@@ -38,6 +38,7 @@ def generate_launch_description():
 
     rate     = LaunchConfiguration('rate',       default = 30)          # original 30
     queue_size = LaunchConfiguration('queue_size',       default = 2)   # original 30
+    normalized = LaunchConfiguration('normalized',       default = True)
 
 
     mobilenet_node = launch_ros.actions.Node(
@@ -48,7 +49,8 @@ def generate_launch_description():
                         {'nnName': nnName},
                         {'rate': rate},
                         {'queue_size': queue_size},
-                        {'resourceBaseFolder': resourceBaseFolder}])
+                        {'resourceBaseFolder': resourceBaseFolder},
+                        {'normalized': normalized}])
 
 
     ld = LaunchDescription()

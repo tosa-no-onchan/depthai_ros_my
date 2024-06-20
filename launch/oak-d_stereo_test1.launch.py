@@ -9,7 +9,7 @@
 #      SBC /dev/video0
 #      PC  /dev/video1
 # $ sudo chmod 777 /dev/video0
-# $ ros2 launch depthai_ros_my oak-d_stereo_test1.launch.py
+# $ ros2 launch depthai_ros_my oak-d_stereo_test1.launch.py [mode:=disparity]
 #
 import os
 
@@ -53,6 +53,7 @@ def generate_launch_description():
     return LaunchDescription([
 
         DeclareLaunchArgument('mode', default_value='depth', description=''),          # 'depth' or 'disparity'
+        #DeclareLaunchArgument('mode', default_value='disparity', description=''),          # 'depth' or 'disparity'
 
         Node(
             package='tf2_ros',
@@ -118,10 +119,17 @@ def generate_launch_description():
             #/color/video/image/theora
             #/joint_states
             #/stereo/camera_info
+            #  depth
             #/stereo/depth
             #/stereo/depth/compressed
             #/stereo/depth/compressedDepth
             #/stereo/depth/theora
+            #  disparity
+            #/stereo/disparity
+            #/stereo/disparity/compressed
+            #/stereo/disparity/compressedDepth
+            #/stereo/disparity/theora
+
         ),
 
         Node(
@@ -129,11 +137,12 @@ def generate_launch_description():
             # https://github.com/ros-perception/image_pipeline/tree/foxy/depth_image_proc/src
             # camera_info (sensor_msgs/CameraInfo) 
             # image_rect (sensor_msgs/Image) 
-            package='rtabmap_util', executable='point_cloud_xyz', output='screen',
+            #package='rtabmap_util', executable='point_cloud_xyz', output='screen',
+            package='rtabmap_util', executable='point_cloud_xyz_my', output='screen',
             parameters=[{
-                "decimation": 4,
-                #"voxel_size": 0.0,
-                "voxel_size": 0.05,
+                "decimation": 4,        # for depth , disparity
+                #"voxel_size": 0.05,    # for depth
+                "voxel_size": 0.0,      # for disparity
                 "approx_sync": True,
                 #"exact_sync": True,
                 #"approx_sync_max_interval": 0.1 ,
@@ -143,8 +152,11 @@ def generate_launch_description():
                 "qos": 1,
             }],
             remappings=[
-                #('disparity/image', '/disparity'),   #
-                #('disparity/camera_info', '/right/camera_info'),
+                # for disparity
+                #('disparity/camera_info', '/right/camera_info'),        # for stereo_publisher
+                ('disparity/camera_info', '/stereo/camera_info'),      # for stereo_publisher_my, stereo_node
+                ('disparity/image', '/stereo/disparity'),   #
+                # for depth
                 ('depth/camera_info','/stereo/camera_info'),
                 ('depth/image','/stereo/depth'),
                 ('cloud', '/cloudXYZ')],

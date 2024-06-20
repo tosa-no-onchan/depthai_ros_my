@@ -172,7 +172,7 @@ void Go_DtectPublish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
 
     for(int i = 0; i < inNetData->detections.size(); ++i) {
 
-        int xMin, yMin, xMax, yMax;
+        float xMin, yMin, xMax, yMax;
         if(normalized_) {
             xMin = inNetData->detections[i].xmin;
             yMin = inNetData->detections[i].ymin;
@@ -180,10 +180,10 @@ void Go_DtectPublish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
             yMax = inNetData->detections[i].ymax;
         } 
         else {
-            xMin = inNetData->detections[i].xmin * width_;
-            yMin = inNetData->detections[i].ymin * height_;
-            xMax = inNetData->detections[i].xmax * width_;
-            yMax = inNetData->detections[i].ymax * height_;
+            xMin = inNetData->detections[i].xmin * (float)width_;
+            yMin = inNetData->detections[i].ymin * (float)height_;
+            xMax = inNetData->detections[i].xmax * (float)width_;
+            yMax = inNetData->detections[i].ymax * (float)height_;
         }
 
         float xSize = xMax - xMin;

@@ -6,6 +6,11 @@
 * original from
 * depthai-core/examples/StereoDepth/stereo_depth_video.cpp
 * http://docs.ros.org/en/noetic/api/depthai/html/opencv_2ImgFrame_8cpp_source.html
+*
+* 1. build on SBC and PC
+*  $ colcon build --symlink-install --parallel-workers 1 --packages-select depthai_ros_my
+*  $ . install/setup.bash
+*
 */
 
 #include <cstdio>
@@ -245,7 +250,11 @@ int main(int argc, char** argv) {
     camera_com::Go_Publish go_pub_left,go_pub_right;
 
     // if文の{}の中に置くと、うまく動きません。必ず直において下さい、
-    camera_com::Go_Publish go_pub_depth,go_pub_disp;
+    camera_com::Go_Publish go_pub_depth;
+
+    //   float focalLength, float baseline = 7.5, float minDepth = 80, float maxDepth = 1100, bool getBaseDeviceTimestamp = false);
+    //camera_com::Go_Disparity go_pub_disp(880, 7.5, 20, 2000);
+    camera_com::Go_Disparity go_pub_disp(880, 7.5, 0, 2000);
 
     //------------------
     // set up camera info
@@ -301,7 +310,7 @@ int main(int argc, char** argv) {
         //dispQueue_recv.init(stereoQueue);
         go_pub_disp.init(stereoQueue);
         //go_pub_disp.set_debug();
-        go_pub_disp.openPub(node, tfPrefix + "_right_camera_optical_frame", "stereo/disparity", qos, rightCameraInfo);
+        go_pub_disp.openPub(node, tfPrefix + "_right_camera_optical_frame", "stereo/disparity","stereo/camera_info", qos, rightCameraInfo);
     }
     rclcpp::spin(node);
     return 0;

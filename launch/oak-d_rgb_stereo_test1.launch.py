@@ -137,7 +137,8 @@ def generate_launch_description():
             # https://github.com/ros-perception/image_pipeline/tree/foxy/depth_image_proc/src
             # camera_info (sensor_msgs/CameraInfo) 
             # image_rect (sensor_msgs/Image) 
-            package='rtabmap_util', executable='point_cloud_xyz', output='screen',
+            #package='rtabmap_util', executable='point_cloud_xyz', output='screen',
+            package='rtabmap_util', executable='point_cloud_xyz_my', output='screen',
             condition=IfCondition(LaunchConfiguration("cloud")),
             parameters=[{
                 "decimation": 4,
