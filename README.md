@@ -99,3 +99,11 @@ How to get images from oak-d Lite depthai camera and publish them.
 
     rclcpp::spin(node);
 ````
+#### 5.Append  
+
+    Ros2 oakd-d lite runs stereo depth and mobilenet objectdetection.  
+    rgb_stereo_mobilenet_node_my.cpp  
+    launch file  
+    oak-d_rgb_stereo_mobilenet_node.launch.py  
+    
+    
