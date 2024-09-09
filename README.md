@@ -49,6 +49,7 @@ ii. publish rgb and depth for rtambap_ros depth
     $ ros2 launch depthai_ros_my oak-d_rgb_stereo_node.launch.py  
 
 rem. exec src/rgb_stereo_node_my.cpp  
+Use USB3.x cable and sufficiant power supply (USB3.x Port).  
 
 iii. publish mono8 stereo  
 
@@ -57,7 +58,7 @@ iii. publish mono8 stereo
 rem. exec src/stereo_camera_test2.cpp  
 
 iv. publish and subscribe mobilnet object detection  
-Use USB3 cable and sufficiant power supply.  
+Use USB3.x cable and sufficiant power supply (USB3.x Port).  
 
     term1  
     $ ros2 launch depthai_ros_my mobilenet_publisher.launch.py  
