@@ -170,26 +170,41 @@ void Go_DtectPublish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
     opDetectionMsg.header.frame_id = frame_name_;
     opDetectionMsg.detections.resize(inNetData->detections.size());
 
+    if(debug_f_){
+        std::cout << " inNetData->detections.size():"<< inNetData->detections.size() << std::endl;
+    }
+
     for(int i = 0; i < inNetData->detections.size(); ++i) {
 
         float xMin, yMin, xMax, yMax;
-        if(normalized_) {
-            xMin = inNetData->detections[i].xmin;
-            yMin = inNetData->detections[i].ymin;
-            xMax = inNetData->detections[i].xmax;
-            yMax = inNetData->detections[i].ymax;
-        } 
-        else {
-            xMin = inNetData->detections[i].xmin * (float)width_;
-            yMin = inNetData->detections[i].ymin * (float)height_;
-            xMax = inNetData->detections[i].xmax * (float)width_;
-            yMax = inNetData->detections[i].ymax * (float)height_;
+        xMin = inNetData->detections[i].xmin;
+        yMin = inNetData->detections[i].ymin;
+        xMax = inNetData->detections[i].xmax;
+        yMax = inNetData->detections[i].ymax;
+
+        #if defined(DEBUG_CHK_11)
+            // yolo v4 だと、結構、超えるみたいだ。
+            if( xMin < 0 || xMin > 1.0)
+                std::cout << " xMin:"<< xMin << std::endl;
+            if( xMax < 0 || xMax > 1.0)
+                std::cout << " xMax:"<< xMax << std::endl;
+            if( yMin < 0 || yMin > 1.0)
+                std::cout << " yMin:"<< yMin << std::endl;
+            if( yMax < 0 || yMax > 1.0)
+                std::cout << " yMax:"<< yMax << std::endl;
+        #endif
+
+        if(!normalized_) {
+            xMin *= (float)width_;
+            yMin *= (float)height_;
+            xMax *= (float)width_;
+            yMax *= (float)height_;
         }
 
         float xSize = xMax - xMin;
         float ySize = yMax - yMin;
-        float xCenter = xMin + xSize / 2;
-        float yCenter = yMin + ySize / 2;
+        float xCenter = xMin + xSize * 0.5;
+        float yCenter = yMin + ySize * 0.5;
 
         opDetectionMsg.detections[i].results.resize(1);
 

@@ -1,8 +1,8 @@
 /*
-* rgb_stereo_node_my.cpp
+* rgb_stereo_tiny_yolo_node_my.cpp
 *
 * test program
-* depthai_ros_my/src/rgb_stereo_mobilenet_node_my.cpp
+* depthai_ros_my/src/rgb_stereo_tiny_yolo_node_my.cpp
 *
 * original from
 * depthai-core/examples/StereoDepth/rgb_stereo_node.cpp
@@ -42,10 +42,16 @@
 #include "depthai_bridge/DisparityConverter.hpp"
 #include "depthai_bridge/ImageConverter.hpp"
 
+// add by nishi
 #include "depthai_ros_my/camera_com.hpp"
 
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 using namespace std::chrono_literals;
+
+using json = nlohmann::json;
+
 
 #define USE_CAMER_CONTROL
 
@@ -61,11 +67,15 @@ std::tuple<dai::Pipeline, int, int> createPipeline(bool lrcheck,
                                                    std::string mResolution,
                                                    std::string cResolution,
                                                    int rate,    // add by nishi 2024.5.5
-                                                   std::string nnPath   // add by nishi 2024.6.20
+                                                   std::string nnPath,   // add by nishi 2024.6.20
+                                                   json &j_data,    // add b nishi 2024.7.1
+                                                   bool syncNN
                                                    ) {
     dai::Pipeline pipeline;
 
-
+    //-------
+    // Set up Stereo Depth part.
+    //-------
     auto monoLeft = pipeline.create<dai::node::MonoCamera>();
     auto monoRight = pipeline.create<dai::node::MonoCamera>();
     auto stereo = pipeline.create<dai::node::StereoDepth>();
@@ -124,24 +134,37 @@ std::tuple<dai::Pipeline, int, int> createPipeline(bool lrcheck,
     monoRight->out.link(stereo->right);
     stereo->depth.link(xoutDepth->input);
 
+
     //-------
-    // Color camers steream setup -------->
+    // Set up Center Color Cam and Object detection part.
     //-------
     auto colorCam = pipeline.create<dai::node::ColorCamera>();
+    // add for yolo 2024.6.20
+    //auto detectionNetwork = pipeline.create<dai::node::MobileNetDetectionNetwork>();
+    auto detectionNetwork = pipeline.create<dai::node::YoloDetectionNetwork>();
 
-    // add for mobilenet 2024.6.20
-    auto detectionNetwork = pipeline.create<dai::node::MobileNetDetectionNetwork>();
+    auto xlinkPreviewOut = pipeline.create<dai::node::XLinkOut>();
+    auto xlinkVideoOut = pipeline.create<dai::node::XLinkOut>();
 
+    auto nnOut = pipeline.create<dai::node::XLinkOut>();
+    nnOut->setStreamName("detections");
+
+    xlinkVideoOut->setStreamName("video");
+    //xlinkVideoOut->input.setQueueSize(1);
+    xlinkVideoOut->input.setQueueSize(2);
+
+    xlinkPreviewOut->setStreamName("preview");
 
     #if defined(USE_CAMER_CONTROL)
         // add by nishi 2024.5.17
         auto controlIn = pipeline.create<dai::node::XLinkIn>();
         controlIn->setStreamName("control");
-
         // Linking
         // add by nishi 2024.5.17
         controlIn->out.link(colorCam->inputControl);
     #endif
+
+    std::cout << " cResolution:" << cResolution << std::endl;
 
 
     dai::ColorCameraProperties::SensorResolution colorResolution;
@@ -151,67 +174,93 @@ std::tuple<dai::Pipeline, int, int> createPipeline(bool lrcheck,
     // add by nishi 2024.5.5
     else if(cResolution == "480p") {
         colorResolution = dai::ColorCameraProperties::SensorResolution::THE_1080_P;
+        //colorResolution = dai::ColorCameraProperties::SensorResolution::THE_800_P;
     }
     else if(cResolution == "4K") {
         colorResolution = dai::ColorCameraProperties::SensorResolution::THE_4_K;
     }
 
     colorCam->setResolution(colorResolution);
+    //colorCam->setResolution(dai::ColorCameraProperties::SensorResolution::THE_1080_P);
+
     if(cResolution == "1080p") {
         colorCam->setVideoSize(1920, 1080);
     }
     // add by nishi 2024.5.5
     else if(cResolution == "480p") {
-        colorCam->setVideoSize(640, 480);
+        // このサイズにすると、 yolov4 で検出ができなくなる。 1920x1080 が必要だ。
+        //colorCam->setVideoSize(640, 480);
+        colorCam->setVideoSize(1920, 1080);
     } 
     else {
         colorCam->setVideoSize(3840, 2160);
     }
 
-    colorCam->setPreviewSize(previewWidth, previewHeight);
+    // 416x416
+    colorCam->setPreviewSize(previewWidth, previewHeight);   // NN input
     colorCam->setInterleaved(false);
     colorCam->setColorOrder(dai::ColorCameraProperties::ColorOrder::BGR);
     //colorCam->setFps(30);
     // changed by nishi 2024.5.5
     colorCam->setFps(rate);
 
-    auto xlinkPreviewOut = pipeline.create<dai::node::XLinkOut>();
-    xlinkPreviewOut->setStreamName("preview");
+    detectionNetwork->setConfidenceThreshold(0.5);
 
-    // not use usePreview and mobilenet at same time? 
-    if(usePreview) {
-        colorCam->preview.link(xlinkPreviewOut->input);
+    int classes=80;
+    if(j_data.is_null() == false){
+        try{
+            auto s = j_data["nn_config"]["NN_specific_metadata"]["classes"];
+            //std::cout << "s:" << s << std::endl;
+            classes=s;
+        }
+        catch(...){
+            std::cout << "createPipeline() : #3 error" << std::endl;
+        }
+    }
+    detectionNetwork->setNumClasses(classes);
+
+    detectionNetwork->setCoordinateSize(4);
+
+    if(j_data.is_null() == false){
+        try{
+            auto anchors = j_data["nn_config"]["NN_specific_metadata"]["anchors"];     // char *
+            auto anchor_masks = j_data["nn_config"]["NN_specific_metadata"]["anchor_masks"];  // char *
+            detectionNetwork->setAnchors(anchors);
+            detectionNetwork->setAnchorMasks(anchor_masks);
+
+            auto iou_threshold = j_data["nn_config"]["NN_specific_metadata"]["iou_threshold"];
+            detectionNetwork->setIouThreshold(iou_threshold);
+        }
+        catch(...){
+            std::cout << "createPipeline() : #4 error" << std::endl;
+        }
+    }
+    else{
+        detectionNetwork->setAnchors({10, 14, 23, 27, 37, 58, 81, 82, 135, 169, 344, 319});
+        detectionNetwork->setAnchorMasks({{"side26", {1, 2, 3}}, {"side13", {3, 4, 5}}});
+        detectionNetwork->setIouThreshold(0.5f);
     }
 
-    auto xlinkVideoOut = pipeline.create<dai::node::XLinkOut>();
-    xlinkVideoOut->setStreamName("video");
-    //xlinkVideoOut->input.setQueueSize(1);
-    xlinkVideoOut->input.setQueueSize(2);
+    detectionNetwork->setBlobPath(nnPath);
+    detectionNetwork->setNumInferenceThreads(2);
+    detectionNetwork->input.setBlocking(false);
 
     if(useVideo) {
         colorCam->video.link(xlinkVideoOut->input);
     }
 
-    // add for mobilenet 2024.6.20
-    // create xlink connections
-    auto nnOut = pipeline.create<dai::node::XLinkOut>();
-    //auto nnNetworkOut = pipeline.create<dai::node::XLinkOut>();
-    nnOut->setStreamName("detections");
-    //nnNetworkOut->setStreamName("nnNetwork");
-
-    detectionNetwork->setConfidenceThreshold(0.5);
-    detectionNetwork->setBlobPath(nnPath);
-
-    //nn->setNumInferenceThreads(2);
-    //nn->input.setBlocking(false);
-
-    if(!usePreview) {
+    // not use usePreview and mobilenet at same time? 
+    if(usePreview) {
+        colorCam->preview.link(xlinkPreviewOut->input);
+    }
+    else{
+        // yolo detection
         // Properties
-        colorCam->setPreviewSize(300, 300);  // NN input
-
         colorCam->preview.link(detectionNetwork->input);
-
-        detectionNetwork->passthrough.link(xlinkPreviewOut->input);
+        if(syncNN)
+            detectionNetwork->passthrough.link(xlinkPreviewOut->input);
+        else
+            colorCam->preview.link(xlinkPreviewOut->input);
 
         detectionNetwork->out.link(nnOut->input);
         //nn->outNetwork.link(nnNetworkOut->input);
@@ -220,15 +269,33 @@ std::tuple<dai::Pipeline, int, int> createPipeline(bool lrcheck,
     return std::make_tuple(pipeline, width, height);
 }
 
-std::vector<std::string> labelMap = {"background", "aeroplane", "bicycle",     "bird",  "boat",        "bottle", "bus",
-                                                  "car",        "cat",       "chair",       "cow",   "diningtable", "dog",    "horse",
-                                                  "motorbike",  "person",    "pottedplant", "sheep", "sofa",        "train",  "tvmonitor"};
+//std::vector<std::string> labelMap = {"background", "aeroplane", "bicycle",     "bird",  "boat",        "bottle", "bus",
+//                                                  "car",        "cat",       "chair",       "cow",   "diningtable", "dog",    "horse",
+//                                                  "motorbike",  "person",    "pottedplant", "sheep", "sofa",        "train",  "tvmonitor"};
+
+std::vector<std::string> labelMap_80 = {
+    "person",        "bicycle",      "car",           "motorbike",     "aeroplane",   "bus",         "train",       "truck",        "boat",
+    "traffic light", "fire hydrant", "stop sign",     "parking meter", "bench",       "bird",        "cat",         "dog",          "horse",
+    "sheep",         "cow",          "elephant",      "bear",          "zebra",       "giraffe",     "backpack",    "umbrella",     "handbag",
+    "tie",           "suitcase",     "frisbee",       "skis",          "snowboard",   "sports ball", "kite",        "baseball bat", "baseball glove",
+    "skateboard",    "surfboard",    "tennis racket", "bottle",        "wine glass",  "cup",         "fork",        "knife",        "spoon",
+    "bowl",          "banana",       "apple",         "sandwich",      "orange",      "broccoli",    "carrot",      "hot dog",      "pizza",
+    "donut",         "cake",         "chair",         "sofa",          "pottedplant", "bed",         "diningtable", "toilet",       "tvmonitor",
+    "laptop",        "mouse",        "remote",        "keyboard",      "cell phone",  "microwave",   "oven",        "toaster",      "sink",
+    "refrigerator",  "book",         "clock",         "vase",          "scissors",    "teddy bear",  "hair drier",  "toothbrush"};
+
+// Manual exposure/focus set step
+static constexpr int EXP_STEP = 500;  // us
+static constexpr int ISO_STEP = 50;
+static constexpr int LENS_STEP = 3;
+static constexpr int WB_STEP = 200;
+
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("rgb_stereo_mobilenet_node_my");
+    auto node = rclcpp::Node::make_shared("rgb_stereo_tiny_yolo_node_my");
 
-    std::cout << "rgb_stereo_mobilenet_node_my" << std::endl;
+    std::cout << "rgb_stereo_tiny_yolo_node_my" << std::endl;
 
     std::string tfPrefix, mode, monoResolution, colorResolution;
     bool lrcheck, extended, subpixel;
@@ -240,12 +307,13 @@ int main(int argc, char** argv) {
     int qos;
     bool trace,rgb2grey;
 
+
     bool auto_exp;
-    int expTime = 20000;
+    int expTime = 20000;    // 27500
     int expMin = 1;
     int expMax = 33000;
 
-    int sensIso = 800;
+    int sensIso = 800;      // 1000
     int sensMin = 100;
     int sensMax = 1600;
 
@@ -255,6 +323,12 @@ int main(int argc, char** argv) {
 
     std::string nnPath;
     bool normalized=true;
+
+    std::string nnJson;
+    json j_data;
+
+    std::vector<std::string> labelMap;
+    labelMap=labelMap_80;
 
 
     // if文の{}の中に置くと、うまく動きません。必ず直において下さい、
@@ -276,8 +350,8 @@ int main(int argc, char** argv) {
     node->declare_parameter("useVideo", true);
     node->declare_parameter("usePreview", false);
     node->declare_parameter("useDepth", true);
-    node->declare_parameter("previewWidth", 300);
-    node->declare_parameter("previewHeight", 300);
+    node->declare_parameter("previewWidth", 416);
+    node->declare_parameter("previewHeight", 416);
     node->declare_parameter("dotProjectormA", 0.0f);
     node->declare_parameter("floodLightmA", 0.0f);
 
@@ -292,6 +366,7 @@ int main(int argc, char** argv) {
     node->declare_parameter("expTime", 27500);
     node->declare_parameter("nnPath", "");
     node->declare_parameter("normalized", normalized);
+    node->declare_parameter<std::string>("nnJson", "");
 
     node->get_parameter("qos", qos);      // add by nishi 2024.5.5
     node->get_parameter("tf_prefix", tfPrefix);
@@ -322,6 +397,8 @@ int main(int argc, char** argv) {
     node->get_parameter("nnPath", nnPath);
     node->get_parameter("normalized", normalized);
 
+    node->get_parameter("nnJson", nnJson);
+
     std::cout << " queue_size:"<< queue_size << std::endl;
     std::cout << " rate:"<< rate << std::endl;
     std::cout << "Using blob at path: " << nnPath << std::endl;
@@ -344,6 +421,18 @@ int main(int argc, char** argv) {
         throw std::runtime_error("Invalid color camera resolution.");
     }
 
+    if(nnJson != ""){
+        std::ifstream f(nnJson);
+        try{
+            j_data = json::parse(f);
+            auto labels = j_data["mappings"]["labels"];
+            labelMap = std::vector<std::string>(labels);
+        }
+        catch(...){
+            std::cout << " nnJson access error"<< std::endl;
+        }
+    }
+
     dai::Pipeline pipeline;
     int monoWidth, monoHeight;
 
@@ -353,7 +442,7 @@ int main(int argc, char** argv) {
     std::tie(pipeline, monoWidth, monoHeight) = createPipeline(
         //lrcheck, extended, subpixel, confidence, LRchecktresh, useVideo, usePreview, previewWidth, previewHeight, monoResolution, colorResolution);
         // changed by nishi 2024.5.5
-        lrcheck, extended, subpixel, confidence, LRchecktresh, useVideo, usePreview, previewWidth, previewHeight, monoResolution, colorResolution,rate, nnPath);
+        lrcheck, extended, subpixel, confidence, LRchecktresh, useVideo, usePreview, previewWidth, previewHeight, monoResolution, colorResolution,rate, nnPath, j_data, true);
     dai::Device device(pipeline);
 
     //auto videoQueue = device.getOutputQueue("video", queue_size, false);    // changed by nishi 2024.5.6
@@ -444,6 +533,8 @@ int main(int argc, char** argv) {
 
         auto stereoCameraInfo = camera_tools.calibrationToCameraInfo_my(calibrationHandler, dai::CameraBoardSocket::CAM_C, monoWidth, monoHeight);
         auto previewCameraInfo = camera_tools.calibrationToCameraInfo_my(calibrationHandler, dai::CameraBoardSocket::CAM_A, previewWidth, previewHeight);
+        // test by nishi
+        //colorWidth = colorHeight=416;
         auto videoCameraInfo = camera_tools.calibrationToCameraInfo_my(calibrationHandler, dai::CameraBoardSocket::CAM_A, colorWidth, colorHeight);
     #endif
 
@@ -465,16 +556,20 @@ int main(int argc, char** argv) {
         go_previewQueue_pub.openPub(node, tfPrefix + "_rgb_camera_optical_frame", "color/preview/image", qos, previewCameraInfo);
     }
     else{
+        // yolo detection
         go_dpub_nNetDataQueue.init(nNetDataQueue);
         go_dpub_nNetDataQueue.set_labelmap(&labelMap);
         //go_dpub_nNetDataQueue.set_debug();
-        go_dpub_nNetDataQueue.openPub_noInfo(node, tfPrefix + "_rgb_camera_optical_frame", "color/mobilenet_detections", qos, previewWidth, previewHeight, normalized);
+        go_dpub_nNetDataQueue.openPub_noInfo(node, tfPrefix + "_rgb_camera_optical_frame", "color/tiny_yolo_detections", qos, previewWidth, previewHeight, normalized);
 
     }
     if(useVideo) {
+        // Center RGB Camera Video
+        // 1920x1080 -> 640x480 にサイズ変更が必要。 by nishi 2024.6.22
         go_videoQueue_pub.init(videoQueue);
         //go_videoQueue_pub.set_debug();
         go_videoQueue_pub.rgb2grey_=rgb2grey;
+        go_videoQueue_pub.set_resize();
         go_videoQueue_pub.openPub(node, tfPrefix + "_rgb_camera_optical_frame", "color/video/image", qos, videoCameraInfo,trace);
     }
     rclcpp::spin(node);

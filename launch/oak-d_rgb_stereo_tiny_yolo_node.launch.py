@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# depthai_ros_my/launch/oak-d_rgb_stereo_mobilenet_node.launch.py
+# depthai_ros_my/launch/oak-d_rgb_stereo_tiny_yolo_node.launch.py
 #
 # 1. build on SBC and PC
 #  $ colcon build --symlink-install --parallel-workers 1 --packages-select depthai_ros_my
@@ -9,7 +9,7 @@
 #      SBC /dev/video0
 #      PC  /dev/video1
 # $ sudo chmod 777 /dev/video0
-# $ ros2 launch depthai_ros_my oak-d_rgb_stereo_mobilenet_node.launch.py
+# $ ros2 launch depthai_ros_my oak-d_rgb_stereo_tiny_yolo_node.launch.py
 #
 import os
 
@@ -48,8 +48,8 @@ def generate_launch_description():
     useVideo        = LaunchConfiguration('useVideo',        default = True)
     usePreview      = LaunchConfiguration('usePreview',      default = False)
     useDepth        = LaunchConfiguration('useDepth',        default = True)
-    previewWidth    = LaunchConfiguration('previewWidth',    default = 300)
-    previewHeight   = LaunchConfiguration('previewHeight',   default = 300)
+    previewWidth    = LaunchConfiguration('previewWidth',    default = 416)
+    previewHeight   = LaunchConfiguration('previewHeight',   default = 416)
 
     # IR Brightness. OAK-D-Pro only.
     dotProjectormA   = LaunchConfiguration('dotProjectormA',     default = 0.0)
@@ -59,9 +59,14 @@ def generate_launch_description():
     trace        = LaunchConfiguration('trace', default = True)
     rgb2grey        = LaunchConfiguration('rgb2grey', default = False)
     auto_exp       = LaunchConfiguration('auto_exp', default = False)
-    sensIso        = LaunchConfiguration('sensIso', default = 1000)
-    expTime        = LaunchConfiguration('expTime', default = 27500)
-    nnPath        = LaunchConfiguration('nnPath', default = '/home/nishi/colcon_ws/src/depthai_ros_my/resources/mobilenet-ssd_openvino_2021.2_6shave.blob')
+    #sensIso        = LaunchConfiguration('sensIso', default = 1000)
+    sensIso        = LaunchConfiguration('sensIso', default = 1200)
+    #expTime        = LaunchConfiguration('expTime', default = 27500)
+    expTime        = LaunchConfiguration('expTime', default = 28000)
+    #nnPath        = LaunchConfiguration('nnPath', default = '/home/nishi/colcon_ws/src/depthai_ros_my/resources/yolov4_tiny_coco_416x416_openvino_2021.4_6shave_bgr.blob')
+    #nnPath        = LaunchConfiguration('nnPath', default = '/home/nishi/colcon_ws/src/depthai_ros_my/resources/yolo-v4-tiny-tf_openvino_2021.4_6shave.blob')
+    nnPath        = LaunchConfiguration('nnPath', default = '/home/nishi/colcon_ws/src/depthai_ros_my/resources/best_openvino_2022.1_6shave.blob')
+    nnJson        = LaunchConfiguration('nnJson', default = "/home/nishi/colcon_ws/src/depthai_ros_my/resources/best.json")
 
     oak_parameters={
         'tf_prefix': tf_prefix,
@@ -99,6 +104,7 @@ def generate_launch_description():
         'sensIso': sensIso,
         'expTime': expTime,
         'nnPath': nnPath,
+        'nnJson': nnJson,
     }
 
     remappings=[
@@ -109,15 +115,15 @@ def generate_launch_description():
     return LaunchDescription([
 
         DeclareLaunchArgument('queue_size', default_value='2', description=''),
-        DeclareLaunchArgument('rate', default_value='15', description=''),
+        DeclareLaunchArgument('rate', default_value='10', description=''),
 
         Node(
             #package='depthai_examples',
             package='depthai_ros_my',
             #executable='rgb_stereo_node',
-            executable='rgb_stereo_mobilenet_node_my',
+            executable='rgb_stereo_tiny_yolo_node_my',
             #name='rgb_stereo_node',
-            name='rgb_stereo_mobilenet_node_my',
+            name='rgb_stereo_tiny_yolo_node_my',
             output="screen",
             parameters=[oak_parameters_rgb],
             # publish

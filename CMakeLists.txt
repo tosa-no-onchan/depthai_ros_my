@@ -153,6 +153,8 @@ dai_add_node_ros2_org(tiny_yolo_v4 src/tiny_yolo.cpp)
 #
 dai_add_node_ros2_org(mobilenet_publisher_dummy src/mobilenet_publisher_dummy.cpp)
 dai_add_node_ros2_org(rgb_stereo_mobilenet_node_my src/rgb_stereo_mobilenet_node_my.cpp)
+dai_add_node_ros2_org(rgb_stereo_tiny_yolo_node_my src/rgb_stereo_tiny_yolo_node_my.cpp)
+dai_add_node_ros2_org(tiny_yolo_v4_publisher src/tiny_yolo_publisher.cpp)
 
 
 target_compile_definitions(mobilenet_publisher PRIVATE BLOB_NAME="${mobilenet_blob_name}")
@@ -179,6 +181,8 @@ install(TARGETS
         tiny_yolo_v4
         mobilenet_publisher_dummy
         rgb_stereo_mobilenet_node_my
+        rgb_stereo_tiny_yolo_node_my
+        tiny_yolo_v4_publisher
         DESTINATION lib/${PROJECT_NAME})
 
 # install the launch directory

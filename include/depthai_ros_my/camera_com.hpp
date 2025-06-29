@@ -51,6 +51,8 @@
 //#include <vision_msgs/msg/detection2_d_array.hpp>
 #include "vision_msgs/msg/detection2_d_array.hpp"
 
+#include "utility/utility.hpp"
+
 
 namespace camera_com {
 
@@ -170,6 +172,11 @@ public:
         return ci.width == img.width && ci.height == img.height;
     }
 
+    // add by nishi 2024.6.22
+    void set_resize(bool is_resize=true){
+        is_resize_ = is_resize;
+    }
+
     //sensor_msgs::msg::CameraInfo calibrationToCameraInfo(dai::CalibrationHandler calibHandler, dai::CameraBoardSocket cameraId, int width, int height, Point2f topLeftPixelId, Point2f bottomRightPixelId);
 
 
@@ -180,6 +187,10 @@ public:
     rclcpp::Time start_t_;
     double sec_dur_ = 3.0;
     int cnt_=0;
+
+    // add by nishi 22024.6.22
+    bool is_resize_ = false;
+    uint32_t height_,width_;
 
 
     std::string frame_name_;

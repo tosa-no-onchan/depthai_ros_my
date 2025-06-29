@@ -8,11 +8,12 @@
 *  $ . install/setup.bash
 *
 * 2. run
-*   $ ros2 run depthai_ros_my detect_subscriber
+*   $ ros2 run depthai_ros_my detect_subscriber [--ros-args -p topic:=color/video/image -p detect_topic:=color/tiny_yolo_detections]
 *
 * reffer from
 *   http://rpgincpp.cocolog-nifty.com/blog/2006/02/post_0123.html
 *   https://cpprefjp.github.io/lang/cpp23/class_template_argument_deduction_from_inherited.html
+*   https://qiita.com/srs/items/9ab7456e4a3a4c5cf645
 *
 */
 
@@ -20,7 +21,9 @@
 
 #include "depthai_ros_my/subs_com.hpp"
 #include <opencv2/opencv.hpp>
-#include <cv_bridge/cv_bridge.h>
+//#include <cv_bridge/cv_bridge.h>
+// changed by nishi 2025.3.3
+#include <cv_bridge/cv_bridge.hpp>
 
 namespace subs_com{
 
@@ -35,7 +38,7 @@ public:
     void activate_image(std::shared_ptr<rclcpp::Node> node, std::string topic, int queue_size){
         node_=node;
         topic_=topic;
-        if(is_trace)
+        if(is_trace_)
             std::cout << " activate_image() topic: "<< topic_ << std::endl;
 
         //Subs_Com<RosMsg>::init(node_,topic_, queue_size);   // OK
@@ -49,19 +52,27 @@ public:
 
         detect_topic_=topic;
         normalized_=normalized;
-        if(is_trace)
+        if(is_trace_)
             std::cout << " activate_detect() topic: "<< detect_topic_ << std::endl;
 
         subs_queue_.activate(node_,detect_topic_,queue_size);
     }
 
-    bool is_trace=false;
+    void set_as_rate(double as_rate=1.0){
+        as_rate_ = as_rate;
+        is_as_rate_=true;
+    }
+
+    bool is_trace_=false;
     bool normalized_=true;
+    bool is_as_rate_=false;
 
 private:
     std::shared_ptr<rclcpp::Node> node_;
     std::string topic_;
     std::string detect_topic_;
+
+    double as_rate_;     // h/w rate
 
     //std::shared_ptr<rclcpp::Subscription<vision_msgs::msg::Detection2DArray>> dtect_sub_;
 
@@ -84,17 +95,59 @@ private:
         int width = msg->width;
         int height = msg->height;
         //int step = msg->step;
+        int off_x=0;
+        int off_y=0;
 
-        if(is_trace){
+        //int tmp_w,tmp_h;
+        int as_height,as_width;
+
+        // aspect rate 調整します。
+        if(normalized_==true && is_as_rate_ == true){
+            // aspect rate に従った as_height を求める
+            as_height = (int)((double)width * as_rate_);
+            // 入力画像 height が、小さい
+            if(height < as_height){
+                // as_width を基準にして、処理する。
+                as_width = (int)((double)height / as_rate_);
+                // x軸の起点を調整。
+                off_x = (width - as_width)/2;
+                // 入力画像 width を、aspect width にする。
+                width = as_width;
+            }
+            // 入力画像 height が、大きい
+            else if(height > as_height){
+                // as_height を基準にして、処理する。
+                // y軸の起点を調整。
+                off_y = (height - as_height)/2;
+                // 入力画像 height を、aspect height にする。
+                height= as_height;
+            }
+        }
+
+        if(is_trace_){
             std::cout << " Detect_Sub::feedTopic()"<<  std::endl;
 
-            //std::cout << " width:"<< width <<  std::endl;
-            //std::cout << " height:"<< height <<  std::endl;
+            std::cout << " width:"<< width <<  std::endl;
+            std::cout << " height:"<< height <<  std::endl;
             //std::cout << " step:"<< step <<  std::endl;
         }
 
         cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
-        rgb = cv_ptr->image;
+
+        if(is_trace_){
+            std::cout << " cv_ptr->encoding:" << cv_ptr->encoding << std::endl;
+        }
+        if(cv_ptr->encoding=="rgb8"){
+            cv::cvtColor(cv_ptr->image,rgb,cv::COLOR_RGB2BGR);
+        }
+        else{
+            rgb = cv_ptr->image;
+        }
+
+        //if(is_trace_){
+        //    std::cout << " rgb.cols:"<< rgb.cols <<  std::endl;
+        //    std::cout << " rgb.rows:"<< rgb.rows <<  std::endl;
+        //}
 
         //----
         // reffer from
@@ -110,7 +163,7 @@ private:
             subs_queue_.msg_q_.pop_front();
 
             int d_size = detectData->detections.size();
-            if(is_trace)
+            if(is_trace_)
                 std::cout << " detect_data->detections.size():" << detectData->detections.size() <<  std::endl;
 
             for(int i=0;i < d_size; i++ ){
@@ -124,10 +177,10 @@ private:
 
                 int x1,x2,y1,y2;
                 if(normalized_==true){
-                    x1 = (xCenter - xSize/2)*width;
-                    x2 = (x1 + xSize)*width;
-                    y1 = (yCenter - ySize/2)*height;
-                    y2 = (y1 + ySize)*height;
+                    x1 = ((xCenter - xSize*0.5) * width) + off_x;
+                    x2 = ((xCenter + xSize*0.5) * width) + off_x;
+                    y1 = ((yCenter - ySize*0.5) * height) + off_y;
+                    y2 = ((yCenter + ySize*0.5) * height) + off_y;
                 }
                 else{
                     x1 = xCenter - xSize/2;
@@ -136,8 +189,13 @@ private:
                     y2 = y1 + ySize;
                 }
 
-                if(is_trace)
+                if(is_trace_){
                     std::cout << " class_name:" << class_name <<  std::endl;
+
+                    std::cout << " x1:"<< x1 <<" x2:"<< x2 << std::endl;
+                    std::cout << " y1:"<< y1 <<" y2:"<< y2 << std::endl;
+                }
+
 
                 std::stringstream confStr;
                 confStr << std::fixed << std::setprecision(2) << score * 100;
@@ -172,9 +230,10 @@ int main(int argc, char** argv) {
     std::string detect_topic;
     int queue_size;
 
-    node->declare_parameter("topic", "color/image");
-    //node->declare_parameter("topic", "color/video/image");
-    node->declare_parameter("detect_topic", "color/mobilenet_detections");
+    //node->declare_parameter("topic", "color/image");
+    node->declare_parameter("topic", "color/video/image");
+    //node->declare_parameter("detect_topic", "color/mobilenet_detections");
+    node->declare_parameter("detect_topic", "color/tiny_yolo_detections");
     node->declare_parameter("queue_size", 10);
 
     node->get_parameter("topic", topic);
@@ -183,6 +242,7 @@ int main(int argc, char** argv) {
 
     //subs_com::Detect_Subs<sensor_msgs::msg::Image> detect;
     subs_com::Detect_Subs detect;
+    detect.set_as_rate();
  
     //detect.is_trace=true;
     detect.activate_image(node,topic,queue_size);

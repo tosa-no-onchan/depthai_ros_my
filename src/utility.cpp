@@ -132,3 +132,47 @@ cv::Mat resizeKeepAspectRatio(const cv::Mat &input, const cv::Size &dstSize, con
     return output;
 }
 
+/*
+*  アスペクトを維持してリサイズする。
+*  ただし、短い方を基準にして、はみ出した部分は、削る。
+*
+* https://stackoverflow.com/questions/8267191/how-to-crop-a-cvmat-in-opencv
+*/
+cv::Mat resizeCutOverEdge(const cv::Mat &input, const cv::Size &dstSize){
+    cv::Mat output,tmp;
+
+    double h1 = dstSize.width * (input.rows/(double)input.cols);
+    double w2 = dstSize.height * (input.cols/(double)input.rows);
+
+    if( h1 <= dstSize.height) {
+        cv::resize( input, tmp, cv::Size(w2, dstSize.height));
+    } 
+    else {
+        cv::resize( input, tmp, cv::Size(dstSize.width, h1));
+    }
+
+    int w = tmp.cols - dstSize.width;
+    int h = tmp.rows - dstSize.height;
+
+    //std::cout << " tmp.cols:"<< tmp.cols << std::endl;
+    //std::cout << " tmp.rows:"<< tmp.rows << std::endl;
+
+    //std::cout << " dstSize.width:"<< dstSize.width << std::endl;
+    //std::cout << " dstSize.height:"<< dstSize.height << std::endl;
+
+    if(w > 0){
+        //std::cout << " w:"<< w << std::endl;
+        // img(cv::Rect(xMin,yMin,xMax-xMin,yMax-yMin)).copyTo(croppedImg);
+        tmp(cv::Rect(w/2,0,dstSize.width,dstSize.height)).copyTo(output);
+        //cv::Rect myROI(w/2,0,dstSize.width,dstSize.height);
+        //output = tmp(myROI);
+    }
+    if(h > 0){
+        //std::cout << " h:"<< h << std::endl;
+        tmp(cv::Rect(0,h/2,dstSize.width,dstSize.height)).copyTo(output);
+        //cv::Rect myROI(0,h/2,dstSize.width,dstSize.height);
+        //output = tmp(myROI);
+    }
+    return output;
+
+}

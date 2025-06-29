@@ -199,6 +199,10 @@ void Go_Publish::openPub(std::shared_ptr<rclcpp::Node> node, std::string frame_n
     info_mgr_ = std::make_shared<camera_info_manager::CameraInfoManager>(node_.get());
     info_mgr_->setCameraInfo(cameraInfo);
 
+    // add by nishi 22024.6.22
+    height_=cameraInfo.height;
+    width_=cameraInfo.width;
+
     //#define TEST_KKX
     //#if defined(TEST_KKX)
     rmw_qos_profile_t video_qos_profile = rmw_qos_profile_sensor_data;
@@ -319,6 +323,7 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
         }
         mat = cv::Mat(size, type, inData->getData().data());
 
+        //#define TEST_VIEW_1
         #if defined(TEST_VIEW_1)
             cv::imshow(Que_Recv::name_, mat);
 
@@ -377,6 +382,12 @@ void Go_Publish::feedImages(std::shared_ptr<dai::ADatatype> &Data){
                     // to RGB8
                     cv::cvtColor(mat, output, cv::ColorConversionCodes::COLOR_YUV2RGB_NV12);
                     encoding_code = sensor_msgs::image_encodings::RGB8;
+                }
+                if(is_resize_ && (height_ != output.rows || width_ != output.cols)){
+                    //リサイズ
+                    //output = resizeKeepAspectRatio(output, cv::Size(width_,height_), cv::Scalar(0));
+                    output = resizeCutOverEdge(output, cv::Size(width_,height_));
+
                 }
                 break;
 
