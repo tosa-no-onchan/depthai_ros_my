@@ -5,9 +5,9 @@ OAK-D Lite 対応 ROS2 Humble depthai-ros example の改造版です。
     rgb_stereo_node_my.cpp  
     stereo_camera_test2.cpp  
 
-  ubuntu 22.04  
-  PC and OrangePi 5 (Armbian and ubuntu 22.04)  
-  ros2:humble  
+  ubuntu 24.04  
+  PC and OrangePi 5 (Armbian and ubuntu 24.04)  
+  ros2:jazzy  
 
 オリジナル: [depthai-ros / depthai_examples](https://github.com/luxonis/depthai-ros/tree/humble/depthai_examples)    
 
